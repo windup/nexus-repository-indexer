@@ -20,5 +20,35 @@
         <module>indexer</module>
         <module>data</module>
     </modules>
+    
+    <properties>
+        <windup.scm.connection>scm:git:https://github.com/windup/nexus-repository-indexer.git</windup.scm.connection>
+        <windup.developer.connection>scm:git:git@github.com:windup/nexus-repository-indexer.git</windup.developer.connection>
+        <windup.scm.url>http://github.com/windup/nexus-repository-indexer</windup.scm.url>
+    </properties>
+    
+    <scm>
+        <tag>master</tag>
+        <connection>${windup.scm.connection}</connection>
+        <developerConnection>${windup.developer.connection}</developerConnection>
+        <url>${windup.scm.url}</url>
+    </scm>
+
+    <issueManagement>
+        <system>JBoss Jira</system>
+        <url>https://issues.jboss.org/browse/WINDUP</url>
+    </issueManagement>
+    <mailingLists>
+        <mailingList>
+            <name>Windup Rules Development and Usage</name>
+            <post>windup-users@lists.jboss.org</post>
+            <archive>http://lists.jboss.org/pipermail/windup-users/</archive>
+        </mailingList>
+        <mailingList>
+            <name>Windup Core Development</name>
+            <post>windup-dev@lists.jboss.org</post>
+            <archive>http://lists.jboss.org/pipermail/windup-dev/</archive>
+        </mailingList>
+    </mailingLists>
 
 </project>
