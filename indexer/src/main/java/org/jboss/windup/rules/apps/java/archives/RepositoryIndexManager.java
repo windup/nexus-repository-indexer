@@ -26,7 +26,6 @@ import org.apache.maven.index.updater.IndexUpdateResult;
 import org.apache.maven.index.updater.IndexUpdater;
 import org.apache.maven.index.updater.ResourceFetcher;
 import org.apache.maven.index.updater.WagonHelper;
-import org.apache.maven.model.Repository;
 import org.apache.maven.wagon.Wagon;
 import org.codehaus.plexus.DefaultContainerConfiguration;
 import org.codehaus.plexus.DefaultPlexusContainer;
@@ -35,6 +34,7 @@ import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.jboss.forge.addon.dependencies.DependencyRepository;
+
 
 /**
  * Downloads Maven index from given repository and produces a list of all artifacts, using this format: "SHA G:A:V[:C]".
@@ -58,19 +58,20 @@ public class RepositoryIndexManager implements AutoCloseable
     private final File indexDir;
 
     /**
-     * Download the index for the given {@link Repository} and store the results at the specified output {@link File}
+     * Download the index for the given {@link DependencyRepository} and store the results at the specified output {@link File}
      * directory.
      */
-    public static void generateMetadata(DependencyRepository repository, File outputDir) throws Exception
+    public static void generateMetadata(DependencyRepository repository, File indexDir, File outputDir) throws Exception
     {
-        try (RepositoryIndexManager manager = new RepositoryIndexManager(outputDir, repository))
+        try (RepositoryIndexManager manager = new RepositoryIndexManager(indexDir, repository))
         {
+            log.info("Downloading or updating index into " + indexDir.getPath());
+            manager.downloadIndexAndUpdate();
+
+            outputDir.mkdirs();
             final File metadataFile = getMetadataFile(repository, outputDir);
             try (FileWriter out = new FileWriter(metadataFile))
             {
-                log.info("Downloading or updating index into " + outputDir.getPath());
-                manager.downloadIndexAndUpdate();
-
                 log.info("Writing sorted metadata to " + metadataFile.getPath());
                 manager.writeMetadataTo(out);
             }
@@ -100,6 +101,8 @@ public class RepositoryIndexManager implements AutoCloseable
     private RepositoryIndexManager(File indexDirectory, DependencyRepository repository) throws PlexusContainerException,
                 ComponentLookupException, IOException
     {
+        final boolean updateExistingIndex = true;
+
         this.indexDirectory = indexDirectory;
 
         final DefaultContainerConfiguration config = new DefaultContainerConfiguration();
@@ -119,8 +122,9 @@ public class RepositoryIndexManager implements AutoCloseable
         List<IndexCreator> indexers = new ArrayList<>();
         indexers.add(plexusContainer.lookup(IndexCreator.class, MinimalArtifactInfoIndexCreator.ID));
         this.context = this.indexer.createIndexingContext(
-                    repository.getId() + "Context", repository.getId(), this.localCache, this.indexDir,
-                    repository.getUrl(), null, true, false, indexers);
+            repository.getId() + "Context", repository.getId(),
+            this.localCache, this.indexDir,
+            repository.getUrl(), null, true, updateExistingIndex, indexers);
     }
 
     private void downloadIndexAndUpdate() throws IOException
@@ -162,19 +166,47 @@ public class RepositoryIndexManager implements AutoCloseable
                     continue;
                 if (info.getSha1().length() != 40)
                     continue;
+                if ("tests".equals(info.getArtifactId()))
+                    continue;
+                if ("pom".equals(info.getPackaging()))
+                    continue;
                 if ("javadoc".equals(info.getClassifier()))
+                    continue;
+                if ("javadocs".equals(info.getClassifier()))
+                    continue;
+                if ("docs".equals(info.getClassifier()))
+                    continue;
+                if ("source".equals(info.getClassifier()))
                     continue;
                 if ("sources".equals(info.getClassifier()))
                     continue;
+                if ("test".equals(info.getClassifier()))
+                    continue;
+                if ("tests".equals(info.getClassifier()))
+                    continue;
+                if ("test-sources".equals(info.getClassifier()))
+                    continue;
+                if ("tests-sources".equals(info.getClassifier()))
+                    continue;
+                if ("test-javadoc".equals(info.getClassifier()))
+                    continue;
+                if ("tests-javadoc".equals(info.getClassifier()))
+                    continue;
 
+                // G:A:[P:[C:]]V
+                // Unfortunatelly, G:A:::V leads to empty strings instead of nulls, see FORGE-2230.
                 StringBuilder line = new StringBuilder();
                 line.append(StringUtils.lowerCase(info.getSha1())).append(' ');
                 line.append(info.getGroupId()).append(":");
                 line.append(info.getArtifactId()).append(":");
-                line.append(info.getVersion()).append(":");
-                line.append(StringUtils.defaultString(info.getClassifier()));
-                line.append(System.lineSeparator());
-                
+                //if (info.getPackaging() != null)
+                    line.append(StringUtils.defaultString(info.getPackaging())).append(":");
+                //if (info.getClassifier() != null)
+                    line.append(StringUtils.defaultString(info.getClassifier())).append(":");
+                line.append(info.getVersion());
+
+                line.append("\n"); // System.lineSeparator() leads to system dependent build.
+
                 lines.add(line.toString());
             }
 

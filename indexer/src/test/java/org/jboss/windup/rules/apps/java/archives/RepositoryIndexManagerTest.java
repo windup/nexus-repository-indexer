@@ -8,6 +8,7 @@ import org.junit.Test;
 
 /**
  * @author <a href="mailto:lincolnbaxter@gmail.com">Lincoln Baxter, III</a>
+ * @author Ondrej Zizka, ozizka at redhat.com
  */
 @Ignore
 public class RepositoryIndexManagerTest
@@ -19,6 +20,6 @@ public class RepositoryIndexManagerTest
     @Test
     public void testGeneateMetadataFile() throws Exception
     {
-        RepositoryIndexManager.generateMetadata(repository, dataDir);
+        RepositoryIndexManager.generateMetadata(repository, dataDir, dataDir);
     }
 }
