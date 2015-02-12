@@ -4,8 +4,11 @@ import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.logging.Logger;
 
 import org.apache.commons.collections4.list.TreeList;
@@ -141,13 +144,17 @@ public class RepositoryIndexManager implements AutoCloseable
     }
 
     /**
-     * Prints all artifacts from the index, using format: SHA1 = G:A:V[:C].
+     * Prints all artifacts from the index, using format: SHA1 G:A:[P:[C:]]V.
      */
     private void writeMetadataTo(FileWriter writer) throws IOException
     {
         final IndexSearcher searcher = this.context.acquireIndexSearcher();
         final IndexReader reader = searcher.getIndexReader();
         Bits liveDocs = MultiFields.getLiveDocs(reader);
+
+
+        final String SKIPPED = "javadoc javadocs docs source sources test tests test-sources tests-sources test-javadoc tests-javadoc";
+        Set<String> skippedClassifiers = new HashSet<>(Arrays.asList(SKIPPED.split(" ")));
 
         /*
          * Use a TreeList because it is faster to insert and sort.
@@ -170,6 +177,8 @@ public class RepositoryIndexManager implements AutoCloseable
                     continue;
                 if ("pom".equals(info.getPackaging()))
                     continue;
+
+                /*
                 if ("javadoc".equals(info.getClassifier()))
                     continue;
                 if ("javadocs".equals(info.getClassifier()))
@@ -191,6 +200,10 @@ public class RepositoryIndexManager implements AutoCloseable
                 if ("test-javadoc".equals(info.getClassifier()))
                     continue;
                 if ("tests-javadoc".equals(info.getClassifier()))
+                    continue;
+                /**/
+
+                if (skippedClassifiers.contains(info.getClassifier()))
                     continue;
 
                 // G:A:[P:[C:]]V
@@ -223,7 +236,7 @@ public class RepositoryIndexManager implements AutoCloseable
     @Override
     public void close() throws IOException
     {
-        this.context.close(true);
+        this.context.close(false);
         this.indexer.closeIndexingContext(this.context, false);
     }
 }

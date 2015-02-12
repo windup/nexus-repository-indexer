@@ -6,7 +6,6 @@
         <groupId>org.jboss.windup.maven</groupId>
         <artifactId>nexus-indexer-parent</artifactId>
         <version>2-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>nexus-indexer-data</artifactId>

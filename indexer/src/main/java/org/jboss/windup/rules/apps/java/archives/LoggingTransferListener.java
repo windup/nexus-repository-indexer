@@ -7,7 +7,7 @@ import org.apache.maven.wagon.observers.AbstractTransferListener;
 
 /**
  * This is used to report progress of potentially large file downloads.
- * 
+ *
  * @author <a href="mailto:lincolnbaxter@gmail.com">Lincoln Baxter, III</a>
  */
 class LoggingTransferListener extends AbstractTransferListener
@@ -23,7 +23,7 @@ class LoggingTransferListener extends AbstractTransferListener
 
     public void transferStarted(TransferEvent transferEvent)
     {
-        log.info(transferEvent.getResource().getName() + "download beginning.");
+        log.info(transferEvent.getResource().getName() + " download beginning.");
     }
 
     @Override
