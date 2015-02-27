@@ -6,7 +6,6 @@
         <groupId>org.jboss.windup.maven</groupId>
         <artifactId>nexus-indexer-parent</artifactId>
         <version>2-SNAPSHOT</version>
-        <relativePath>../pom.xml</relativePath>
     </parent>
 
     <artifactId>nexus-indexer-data</artifactId>
@@ -55,6 +54,7 @@
                                 <argument>central</argument>
                                 <argument>http://repo1.maven.org/maven2</argument>
                                 <argument>${project.build.directory}</argument>
+                                <argument>${user.home}/.windup/cache/nexus-indexes</argument>
                             </arguments>
                         </configuration>
                     </execution>
