@@ -13,11 +13,19 @@ import java.util.logging.Logger;
 
 import org.apache.commons.collections4.list.TreeList;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
+import org.apache.lucene.document.Field;
+import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexReader;
+import org.apache.lucene.index.IndexWriter;
+import org.apache.lucene.index.IndexWriterConfig;
 import org.apache.lucene.index.MultiFields;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.store.Directory;
+import org.apache.lucene.store.SimpleFSDirectory;
 import org.apache.lucene.util.Bits;
+import org.apache.lucene.util.Version;
 import org.apache.maven.index.ArtifactInfo;
 import org.apache.maven.index.Indexer;
 import org.apache.maven.index.context.IndexCreator;
@@ -76,7 +84,7 @@ public class RepositoryIndexManager implements AutoCloseable
             try (FileWriter out = new FileWriter(metadataFile))
             {
                 log.info("Writing sorted metadata to " + metadataFile.getPath());
-                manager.writeMetadataTo(out);
+                manager.writeMetadataTo(outputDir, out);
             }
         }
     }
@@ -146,37 +154,46 @@ public class RepositoryIndexManager implements AutoCloseable
     /**
      * Prints all artifacts from the index, using format: SHA1 G:A:[P:[C:]]V.
      */
-    private void writeMetadataTo(FileWriter writer) throws IOException
+    private void writeMetadataTo(File outputDirectory, FileWriter writer) throws IOException
     {
-        final IndexSearcher searcher = this.context.acquireIndexSearcher();
-        final IndexReader reader = searcher.getIndexReader();
-        Bits liveDocs = MultiFields.getLiveDocs(reader);
+        File outputLuceneDirectory = new File(outputDirectory, "lucene");
+        outputLuceneDirectory.mkdirs();
+        File markerFile = new File(outputLuceneDirectory, "archive-metadata.lucene.marker");
+        markerFile.createNewFile();
 
-
-        final String SKIPPED = "javadoc javadocs docs source sources test tests test-sources tests-sources test-javadoc tests-javadoc";
-        Set<String> skippedClassifiers = new HashSet<>(Arrays.asList(SKIPPED.split(" ")));
-
-        /*
-         * Use a TreeList because it is faster to insert and sort.
-         */
-        List<String> lines = new TreeList<>();
-        for (int i = 0; i < reader.maxDoc(); i++)
+        Directory output = new SimpleFSDirectory(outputLuceneDirectory);
+        StandardAnalyzer standardAnalyzer = new StandardAnalyzer(Version.LUCENE_48);
+        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_48, standardAnalyzer);
+        try (IndexWriter indexWriter = new IndexWriter(output, config))
         {
-            if (liveDocs == null || liveDocs.get(i))
-            {
-                final Document doc = reader.document(i);
-                final ArtifactInfo info = IndexUtils.constructArtifactInfo(doc, this.context);
+            final IndexSearcher searcher = this.context.acquireIndexSearcher();
+            final IndexReader reader = searcher.getIndexReader();
+            Bits liveDocs = MultiFields.getLiveDocs(reader);
 
-                if (info == null)
-                    continue;
-                if (info.getSha1() == null)
-                    continue;
-                if (info.getSha1().length() != 40)
-                    continue;
-                if ("tests".equals(info.getArtifactId()))
-                    continue;
-                if ("pom".equals(info.getPackaging()))
-                    continue;
+            final String SKIPPED = "javadoc javadocs docs source sources test tests test-sources tests-sources test-javadoc tests-javadoc";
+            Set<String> skippedClassifiers = new HashSet<>(Arrays.asList(SKIPPED.split(" ")));
+
+            /*
+             * Use a TreeList because it is faster to insert and sort.
+             */
+            List<String> lines = new TreeList<>();
+            for (int i = 0; i < reader.maxDoc(); i++)
+            {
+                if (liveDocs == null || liveDocs.get(i))
+                {
+                    final Document doc = reader.document(i);
+                    final ArtifactInfo info = IndexUtils.constructArtifactInfo(doc, this.context);
+
+                    if (info == null)
+                        continue;
+                    if (info.getSha1() == null)
+                        continue;
+                    if (info.getSha1().length() != 40)
+                        continue;
+                    if ("tests".equals(info.getArtifactId()))
+                        continue;
+                    if ("pom".equals(info.getPackaging()))
+                        continue;
 
                 /*
                 if ("javadoc".equals(info.getClassifier()))
@@ -203,34 +220,50 @@ public class RepositoryIndexManager implements AutoCloseable
                     continue;
                 /**/
 
-                if (skippedClassifiers.contains(info.getClassifier()))
-                    continue;
+                    if (skippedClassifiers.contains(info.getClassifier()))
+                        continue;
 
-                // G:A:[P:[C:]]V
-                // Unfortunatelly, G:A:::V leads to empty strings instead of nulls, see FORGE-2230.
-                StringBuilder line = new StringBuilder();
-                line.append(StringUtils.lowerCase(info.getSha1())).append(' ');
-                line.append(info.getGroupId()).append(":");
-                line.append(info.getArtifactId()).append(":");
-                //if (info.getPackaging() != null)
-                    line.append(StringUtils.defaultString(info.getPackaging())).append(":");
-                //if (info.getClassifier() != null)
-                    line.append(StringUtils.defaultString(info.getClassifier())).append(":");
-                line.append(info.getVersion());
+                    // G:A:[P:[C:]]V
+                    // Unfortunately, G:A:::V leads to empty strings instead of nulls, see FORGE-2230.
+                    StringBuilder line = new StringBuilder();
 
-                line.append("\n"); // System.lineSeparator() leads to system dependent build.
+                    String sha1 = StringUtils.lowerCase(info.getSha1());
+                    String packaging = StringUtils.defaultString(info.getPackaging());
+                    String classifier = StringUtils.defaultString(info.getClassifier());
 
-                lines.add(line.toString());
+                    Document outputDoc = new Document();
+                    outputDoc.add(new StringField("sha1", sha1, Field.Store.YES));
+                    outputDoc.add(new StringField("groupId", info.getGroupId(), Field.Store.YES));
+                    outputDoc.add(new StringField("artifactId", info.getArtifactId(), Field.Store.YES));
+                    outputDoc.add(new StringField("packaging", packaging, Field.Store.YES));
+                    outputDoc.add(new StringField("classifier", classifier, Field.Store.YES));
+                    outputDoc.add(new StringField("version", info.getVersion(), Field.Store.YES));
+                    indexWriter.addDocument(outputDoc);
+
+                    line.append(sha1).append(' ');
+                    line.append(info.getGroupId()).append(":");
+                    line.append(info.getArtifactId()).append(":");
+                    // if (info.getPackaging() != null)
+                    line.append(packaging).append(":");
+                    // if (info.getClassifier() != null)
+                    line.append(classifier).append(":");
+                    line.append(info.getVersion());
+
+                    line.append("\n"); // System.lineSeparator() leads to system dependent build.
+
+                    lines.add(line.toString());
+                }
+
             }
 
-        }
+            Collections.sort(lines);
 
-        Collections.sort(lines);
-
-        for (String line : lines)
-        {
-            writer.append(line);
+            for (String line : lines)
+            {
+                writer.append(line);
+            }
         }
+        output.close();
     }
 
     @Override

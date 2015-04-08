@@ -14,7 +14,7 @@
             <directory>${project.build.directory}</directory>
             <outputDirectory>/</outputDirectory>
             <includes>
-                <include>*.archive-metadata.txt</include>
+                <include>lucene/**/*</include>
             </includes>
         </fileSet>
     </fileSets>
