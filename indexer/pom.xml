@@ -16,7 +16,7 @@
     <dependencies>
         <!-- Local Dependencies -->
         <dependency>
-            <groupId>org.apache.maven.indexer</groupId>
+            <groupId>org.jboss.windup.org.apache.maven.indexer</groupId>
             <artifactId>indexer-core</artifactId>
             <version>6.0.WINDUP</version>
         </dependency>
