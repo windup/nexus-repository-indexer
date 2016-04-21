@@ -26,6 +26,7 @@
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
+                    <!-- Bundle the resulting indexes and text files to an artifact. -->
                     <execution>
                         <id>bundle-mappings</id>
                         <phase>prepare-package</phase>
@@ -43,6 +44,7 @@
                 <groupId>org.codehaus.mojo</groupId>
                 <artifactId>exec-maven-plugin</artifactId>
                 <executions>
+                    <!-- Generate the indexes. -->
                     <execution>
                         <phase>compile</phase>
                         <goals>

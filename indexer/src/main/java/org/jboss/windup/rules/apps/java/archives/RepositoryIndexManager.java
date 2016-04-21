@@ -1,32 +1,28 @@
 package org.jboss.windup.rules.apps.java.archives;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import org.apache.commons.collections4.list.TreeList;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
-import org.apache.lucene.document.Field;
-import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexReader;
-import org.apache.lucene.index.IndexWriter;
-import org.apache.lucene.index.IndexWriterConfig;
+import org.apache.lucene.index.IndexableField;
 import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.store.Directory;
-import org.apache.lucene.store.SimpleFSDirectory;
+import org.apache.lucene.search.Query;
+import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.util.Bits;
-import org.apache.lucene.util.Version;
 import org.apache.maven.index.ArtifactInfo;
+import org.apache.maven.index.FlatSearchRequest;
+import org.apache.maven.index.FlatSearchResponse;
 import org.apache.maven.index.Indexer;
 import org.apache.maven.index.context.IndexCreator;
 import org.apache.maven.index.context.IndexUtils;
@@ -55,9 +51,17 @@ import org.jboss.forge.addon.dependencies.DependencyRepository;
  */
 public class RepositoryIndexManager implements AutoCloseable
 {
-    private static final Logger log = Logger.getLogger(RepositoryIndexManager.class.getName());
+    private static final Logger LOG = Logger.getLogger(RepositoryIndexManager.class.getName());
 
-    private File indexDirectory;
+    // Predefined BOMs. See http://repository.jboss.org/nexus/content/groups/public/org/jboss/bom/
+    private static final String JBOSS_PARENT_20 = "org.jboss:jboss-parent:20";
+    private static final String BOM_EAP7_TOOLS  = "org.jboss.bom:jboss-javaee-7.0-eap-with-tools:7.0.0-SNAPSHOT";
+    private static final String BOM_EAP7        = "org.jboss.bom:jboss-eap-javaee7:7.0.0-SNAPSHOT";
+
+    public static final String LUCENE_SUBDIR_CHECKSUMS = "lucene";
+    public static final String LUCENE_SUBDIR_PACKAGES = "lucene-packages";
+
+    private final File indexDirectory;
 
     private final PlexusContainer plexusContainer;
     private final Indexer indexer;
@@ -76,16 +80,10 @@ public class RepositoryIndexManager implements AutoCloseable
     {
         try (RepositoryIndexManager manager = new RepositoryIndexManager(indexDir, repository))
         {
-            log.info("Downloading or updating index into " + indexDir.getPath());
+            LOG.info("Downloading or updating index into " + indexDir.getPath());
             manager.downloadIndexAndUpdate();
-
-            outputDir.mkdirs();
-            final File metadataFile = getMetadataFile(repository, outputDir);
-            try (FileWriter out = new FileWriter(metadataFile))
-            {
-                log.info("Writing sorted metadata to " + metadataFile.getPath());
-                manager.writeMetadataTo(outputDir, out);
-            }
+            LOG.info("Writing selected Nexus index data to " + outputDir.getPath());
+            manager.writeMetadataTo(outputDir, repository);
         }
     }
 
@@ -103,7 +101,7 @@ public class RepositoryIndexManager implements AutoCloseable
      */
     public static File getMetadataFile(DependencyRepository repository, File outputDir)
     {
-        return new File(outputDir, repository.getId() + ".archive-metadata" + ".txt");
+        return new File(outputDir, repository.getId() + ".archive-metadata.txt");
     }
 
     /*
@@ -140,130 +138,95 @@ public class RepositoryIndexManager implements AutoCloseable
 
     private void downloadIndexAndUpdate() throws IOException
     {
-        ResourceFetcher resourceFetcher = new WagonHelper.WagonFetcher(httpWagon, new LoggingTransferListener(log), null, null);
+        ResourceFetcher resourceFetcher = new WagonHelper.WagonFetcher(httpWagon, new LoggingTransferListener(LOG), null, null);
         IndexUpdateRequest updateRequest = new IndexUpdateRequest(this.context, resourceFetcher);
         updateRequest.setIncrementalOnly(false);
         updateRequest.setForceFullUpdate(false);
         IndexUpdateResult updateResult = indexUpdater.fetchAndUpdateIndex(updateRequest);
         if (updateResult.isFullUpdate())
-            log.info("Fully updated index for repository [" + this.context.getId() + "] - [" + this.context.getRepositoryUrl() + "]");
+            LOG.info("Fully updated index for repository [" + this.context.getId() + "] - [" + this.context.getRepositoryUrl() + "]");
         else
-            log.info("Incrementally updated index for repository [" + this.context.getId() + "] - [" + this.context.getRepositoryUrl() + "]");
+            LOG.info("Incrementally updated index for repository [" + this.context.getId() + "] - [" + this.context.getRepositoryUrl() + "]");
     }
 
+
     /**
-     * Prints all artifacts from the index, using format: SHA1 G:A:[P:[C:]]V.
+     * Passes all artifacts from the index to the visitors.
+     *
+     * @see org.jboss.windup.rules.apps.java.archives.config.ArchiveIdentificationConfigLoadingRuleProvider
      */
-    private void writeMetadataTo(File outputDirectory, FileWriter writer) throws IOException
+    private void writeMetadataTo(File outDir, DependencyRepository repository) throws IOException
     {
-        File outputLuceneDirectory = new File(outputDirectory, "lucene");
-        outputLuceneDirectory.mkdirs();
-        File markerFile = new File(outputLuceneDirectory, "archive-metadata.lucene.marker");
-        markerFile.createNewFile();
+        outDir.mkdirs();
 
-        Directory output = new SimpleFSDirectory(outputLuceneDirectory);
-        StandardAnalyzer standardAnalyzer = new StandardAnalyzer(Version.LUCENE_48);
-        IndexWriterConfig config = new IndexWriterConfig(Version.LUCENE_48, standardAnalyzer);
-        try (IndexWriter indexWriter = new IndexWriter(output, config))
+        // Maven repo index
+        final IndexSearcher searcher = this.context.acquireIndexSearcher();
+        final IndexReader reader = searcher.getIndexReader();
+        Bits liveDocs = MultiFields.getLiveDocs(reader);
+
+
+        final File textMetadataFile = getMetadataFile(repository, outDir);
+        SortingLineWriterArtifactVisitor writerVisitor = new SortingLineWriterArtifactVisitor(textMetadataFile, ArtifactFilter.LIBRARIES);
+
+        LuceneIndexArtifactVisitor basicIndexerVisitor = new LuceneIndexArtifactVisitor(new File(outDir, LUCENE_SUBDIR_CHECKSUMS), ArtifactFilter.LIBRARIES);
+
+        //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss", "jboss-parent", "19");
+        //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss.bom", "jboss-eap-javaee7", "7.0.0-SNAPSHOT");
+        //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss.bom", "jboss-javaee-7.0-eap-with-tools", "7.0.0-SNAPSHOT");
+        ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom(BOM_EAP7_TOOLS);
+        ArtifactFilter.AndFilter libsBomFilter = new ArtifactFilter.AndFilter(ArtifactFilter.LIBRARIES, bomFilter);
+        PackageLuceneIndexArtifactVisitor packagesIndexerVisitor = new PackageLuceneIndexArtifactVisitor(new File(outDir, LUCENE_SUBDIR_PACKAGES), libsBomFilter);
+
+
+        for (int i = 0; i < reader.maxDoc(); i++)
         {
-            final IndexSearcher searcher = this.context.acquireIndexSearcher();
-            final IndexReader reader = searcher.getIndexReader();
-            Bits liveDocs = MultiFields.getLiveDocs(reader);
+            if (liveDocs != null && !liveDocs.get(i))
+                continue;
+            //if (liveDocs == null || liveDocs.get(i))
 
-            final String SKIPPED = "javadoc javadocs docs source sources test tests test-sources tests-sources test-javadoc tests-javadoc";
-            Set<String> skippedClassifiers = new HashSet<>(Arrays.asList(SKIPPED.split(" ")));
-
-            /*
-             * Use a TreeList because it is faster to insert and sort.
-             */
-            List<String> lines = new TreeList<>();
-            for (int i = 0; i < reader.maxDoc(); i++)
-            {
-                if (liveDocs == null || liveDocs.get(i))
-                {
-                    final Document doc = reader.document(i);
-                    final ArtifactInfo info = IndexUtils.constructArtifactInfo(doc, this.context);
-
-                    if (info == null)
-                        continue;
-                    if (info.getSha1() == null)
-                        continue;
-                    if (info.getSha1().length() != 40)
-                        continue;
-                    if ("tests".equals(info.getArtifactId()))
-                        continue;
-                    if ("pom".equals(info.getPackaging()))
-                        continue;
-
-                /*
-                if ("javadoc".equals(info.getClassifier()))
-                    continue;
-                if ("javadocs".equals(info.getClassifier()))
-                    continue;
-                if ("docs".equals(info.getClassifier()))
-                    continue;
-                if ("source".equals(info.getClassifier()))
-                    continue;
-                if ("sources".equals(info.getClassifier()))
-                    continue;
-                if ("test".equals(info.getClassifier()))
-                    continue;
-                if ("tests".equals(info.getClassifier()))
-                    continue;
-                if ("test-sources".equals(info.getClassifier()))
-                    continue;
-                if ("tests-sources".equals(info.getClassifier()))
-                    continue;
-                if ("test-javadoc".equals(info.getClassifier()))
-                    continue;
-                if ("tests-javadoc".equals(info.getClassifier()))
-                    continue;
-                /**/
-
-                    if (skippedClassifiers.contains(info.getClassifier()))
-                        continue;
-
-                    // G:A:[P:[C:]]V
-                    // Unfortunately, G:A:::V leads to empty strings instead of nulls, see FORGE-2230.
-                    StringBuilder line = new StringBuilder();
-
-                    String sha1 = StringUtils.lowerCase(info.getSha1());
-                    String packaging = StringUtils.defaultString(info.getPackaging());
-                    String classifier = StringUtils.defaultString(info.getClassifier());
-
-                    Document outputDoc = new Document();
-                    outputDoc.add(new StringField("sha1", sha1, Field.Store.YES));
-                    outputDoc.add(new StringField("groupId", info.getGroupId(), Field.Store.YES));
-                    outputDoc.add(new StringField("artifactId", info.getArtifactId(), Field.Store.YES));
-                    outputDoc.add(new StringField("packaging", packaging, Field.Store.YES));
-                    outputDoc.add(new StringField("classifier", classifier, Field.Store.YES));
-                    outputDoc.add(new StringField("version", info.getVersion(), Field.Store.YES));
-                    indexWriter.addDocument(outputDoc);
-
-                    line.append(sha1).append(' ');
-                    line.append(info.getGroupId()).append(":");
-                    line.append(info.getArtifactId()).append(":");
-                    // if (info.getPackaging() != null)
-                    line.append(packaging).append(":");
-                    // if (info.getClassifier() != null)
-                    line.append(classifier).append(":");
-                    line.append(info.getVersion());
-
-                    line.append("\n"); // System.lineSeparator() leads to system dependent build.
-
-                    lines.add(line.toString());
-                }
-
+            final Document doc = reader.document(i);
+            final ArtifactInfo artifact = IndexUtils.constructArtifactInfo(doc, this.context);
+            if (artifact == null){
+                //LOG.info("IndexUtils.constructArtifactInfo(doc, this.context) returned null: ["+i+"]" + doc.toString());
+                // This happens for documents which are not Artifact, e.g. Archetype etc.
+                continue;
             }
 
-            Collections.sort(lines);
+            artifact.setSha1(StringUtils.lowerCase(artifact.getSha1()));
+            artifact.setPackaging(StringUtils.defaultString(artifact.getPackaging()));
+            artifact.setClassifier(StringUtils.defaultString(artifact.getClassifier()));
 
-            for (String line : lines)
+            for (ArtifactVisitor<Object> visitor : Arrays.asList(writerVisitor, basicIndexerVisitor, packagesIndexerVisitor))
             {
-                writer.append(line);
+                try {
+                    visitor.visit(artifact);
+                }
+                catch (Exception e) {
+                    LOG.log(Level.SEVERE, "Failed processing " + artifact + " with " + visitor + "\n    " + e.getMessage());
+                }
             }
         }
-        output.close();
+
+
+        try {
+            writerVisitor.done();
+        }
+        catch (Exception e) {
+            LOG.log(Level.SEVERE, "Failed finishing " + writerVisitor, e);
+        }
+        try {
+            basicIndexerVisitor.done();
+        }
+        catch (Exception e) {
+            LOG.log(Level.SEVERE, "Failed finishing " + basicIndexerVisitor, e);
+        }
+        try {
+            packagesIndexerVisitor.done();
+        } catch (Exception e)
+        {
+            LOG.log(Level.SEVERE, "Failed finishing " + basicIndexerVisitor, e);
+        }
+        this.context.releaseIndexSearcher(searcher);
     }
 
     @Override
@@ -271,5 +234,40 @@ public class RepositoryIndexManager implements AutoCloseable
     {
         this.context.close(false);
         this.indexer.closeIndexingContext(this.context, false);
+    }
+
+
+
+    /**
+     * Normal visitor pattern which also allows to call a method after finished and retrieve a resulting object.
+     */
+    public interface ArtifactVisitor<T>
+    {
+        void visit(ArtifactInfo artifact);
+        public T done();
+    }
+
+
+
+
+    /// Test - http://www.programcreek.com/java-api-examples/index.php?source_dir=maven-indexer-master/indexer-core/src/test/java/org/apache/maven/index/FullIndexNexusIndexerTest.java
+    void test() throws IOException{
+
+        {
+            BooleanQuery bq = new BooleanQuery();
+            bq.add(new TermQuery(new Term(ArtifactInfo.GROUP_ID, "maven-archetype" )), BooleanClause.Occur.MUST);
+            bq.add(new TermQuery(new Term(ArtifactInfo.ARTIFACT_ID, "maven-archetype" )), BooleanClause.Occur.MUST);
+            bq.add(new TermQuery(new Term(ArtifactInfo.VERSION, "maven-archetype" )), BooleanClause.Occur.MUST);
+            bq.add(new TermQuery(new Term(ArtifactInfo.PACKAGING, "jar" )), BooleanClause.Occur.MUST);
+
+            FlatSearchResponse response = this.indexer.searchFlat( new FlatSearchRequest( bq ) );
+        }
+
+        {
+            Query q = new TermQuery(new Term("coords", "org.jboss:parent:19"));
+            FlatSearchResponse response = this.indexer.searchFlat(new FlatSearchRequest(q));
+
+            //response.getResults().iterator().next()
+        }
     }
 }
