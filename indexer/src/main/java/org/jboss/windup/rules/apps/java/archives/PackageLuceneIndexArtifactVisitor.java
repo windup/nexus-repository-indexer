@@ -4,9 +4,7 @@ package org.jboss.windup.rules.apps.java.archives;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import java.util.logging.Logger;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
@@ -53,30 +51,24 @@ public class PackageLuceneIndexArtifactVisitor extends LuceneIndexArtifactVisito
         LOG.info("Resolving and scanning: " + artToDownload);
         final Artifact artifact = downloader.downloadArtifact(artToDownload);
 
-        //final Set<String> packages = new HashSet<>();
         final List<Document> docs = new ArrayList<>(64); // Guesstimated # of packages in a jar.
         try
         {
+            final Document doc = new Document();
+            doc.add(new StringField("coords", toCoords(artifact), Field.Store.YES));
             ZipUtil.scanClassesInJar(artifact.getFile().toPath(), true, new ZipUtil.Visitor<String>()
             {
                 public void visit(String item)
                 {
-                    //packages.add(item);
-                    Document doc = new Document();
-                    doc.add(new StringField("coords", toCoords(artifact), Field.Store.YES));
                     doc.add(new StringField("package", item, Field.Store.YES));
-                    docs.add(doc);
                 }
             });
+            docs.add(doc);
         }
         catch (IOException ex)
         {
             LOG.warning("Error scanning JAR artifact: " + artifact + "\n    " + ex.getMessage());
         }
-        //Document outputDoc = new Document();
-        //outputDoc.add(new StringField("coords", toCoords(artifact), Field.Store.YES));
-        //outputDoc.add(new StringField("packages", StringUtils.join(packages, " "), Field.Store.YES));
-        //docs.add(outputDoc);
         return docs;
     }
 
