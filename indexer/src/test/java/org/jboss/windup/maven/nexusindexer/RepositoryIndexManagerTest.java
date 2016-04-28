@@ -1,5 +1,6 @@
-package org.jboss.windup.rules.apps.java.archives;
+package org.jboss.windup.maven.nexusindexer;
 
+import org.jboss.windup.maven.nexusindexer.RepositoryIndexManager;
 import java.io.File;
 
 import org.jboss.forge.addon.dependencies.DependencyRepository;

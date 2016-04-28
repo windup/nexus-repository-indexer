@@ -1,4 +1,4 @@
-package org.jboss.windup.rules.apps.java.archives;
+package org.jboss.windup.maven.nexusindexer;
 
 
 import java.io.File;
@@ -109,7 +109,5 @@ public class LuceneIndexArtifactVisitor implements RepositoryIndexManager.Artifa
         }
         return null;
     }
-
-
 
 }

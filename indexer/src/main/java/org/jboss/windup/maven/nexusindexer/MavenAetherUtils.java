@@ -1,12 +1,10 @@
-package org.jboss.windup.rules.apps.java.archives;
+package org.jboss.windup.maven.nexusindexer;
 
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.LinkedList;
-import java.util.List;
 import java.util.logging.Logger;
 import org.apache.commons.io.FileUtils;
 import org.apache.maven.repository.internal.MavenRepositorySystemUtils;
@@ -16,7 +14,6 @@ import org.eclipse.aether.RepositorySystemSession;
 import org.eclipse.aether.connector.basic.BasicRepositoryConnectorFactory;
 import org.eclipse.aether.impl.DefaultServiceLocator;
 import org.eclipse.aether.repository.LocalRepository;
-import org.eclipse.aether.repository.RemoteRepository;
 import org.eclipse.aether.spi.connector.RepositoryConnectorFactory;
 import org.eclipse.aether.spi.connector.transport.TransporterFactory;
 import org.eclipse.aether.transport.file.FileTransporterFactory;
@@ -89,9 +86,5 @@ public class MavenAetherUtils
         session.setLocalRepositoryManager(system.newLocalRepositoryManager(session, localRepo));
         return session;
     }
-
-
-
-
 
 }

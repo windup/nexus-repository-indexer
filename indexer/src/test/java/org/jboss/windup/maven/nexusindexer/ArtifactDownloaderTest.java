@@ -1,5 +1,6 @@
-package org.jboss.windup.rules.apps.java.archives;
+package org.jboss.windup.maven.nexusindexer;
 
+import org.jboss.windup.maven.nexusindexer.ArtifactDownloader;
 import java.util.List;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;

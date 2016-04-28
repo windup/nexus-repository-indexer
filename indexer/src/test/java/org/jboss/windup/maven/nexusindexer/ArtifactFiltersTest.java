@@ -1,7 +1,10 @@
-package org.jboss.windup.rules.apps.java.archives;
+package org.jboss.windup.maven.nexusindexer;
 
+import org.jboss.windup.maven.nexusindexer.ArtifactFilter;
+import org.jboss.windup.maven.nexusindexer.DefinitionArtifactFilter;
+import org.jboss.windup.maven.nexusindexer.BomBasedArtifactFilterFactory;
 import org.apache.maven.index.ArtifactInfo;
-import static org.jboss.windup.rules.apps.java.archives.DefinitionArtifactFilter.ANY_MATCHES;
+import static org.jboss.windup.maven.nexusindexer.DefinitionArtifactFilter.ANY_MATCHES;
 import org.junit.Test;
 import static org.junit.Assert.*;
 

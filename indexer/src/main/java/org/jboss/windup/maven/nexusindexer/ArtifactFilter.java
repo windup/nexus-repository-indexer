@@ -1,4 +1,4 @@
-package org.jboss.windup.rules.apps.java.archives;
+package org.jboss.windup.maven.nexusindexer;
 
 import java.util.ArrayList;
 import java.util.Arrays;

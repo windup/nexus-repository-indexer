@@ -1,4 +1,4 @@
-package org.jboss.windup.rules.apps.java.archives;
+package org.jboss.windup.maven.nexusindexer;
 
 
 import java.util.Arrays;
@@ -15,7 +15,6 @@ import org.eclipse.aether.resolution.ArtifactDescriptorResult;
 import org.eclipse.aether.resolution.ArtifactRequest;
 import org.eclipse.aether.resolution.ArtifactResolutionException;
 import org.eclipse.aether.resolution.ArtifactResult;
-import org.jboss.windup.rules.apps.java.archives.aether.ManualRepositorySystemFactory;
 
 /**
  * Downloads Maven artifacts.
@@ -25,7 +24,7 @@ import org.jboss.windup.rules.apps.java.archives.aether.ManualRepositorySystemFa
 public class ArtifactDownloader
 {
 
-    private final RepositorySystem system = ManualRepositorySystemFactory.newRepositorySystem( );
+    private final RepositorySystem system = MavenAetherUtils.newRepositorySystem();
     private final RepositorySystemSession session = MavenAetherUtils.createSession(system, MavenAetherUtils.getWorkingRepoPath());
     private final List<RemoteRepository> repositories;
 
