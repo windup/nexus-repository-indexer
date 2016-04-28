@@ -26,14 +26,14 @@ public class DefinitionArtifactFilter implements ArtifactFilter
      * A presence of ANY_MATCHES_* values means it will match any value at that level.
      * So the user can define e.g. org.jboss:*:* or org.jboss.windup:windup-core:*.
      */
-    private final Map<String, Map<String, Set<String>>> gavTree = new HashMap();
+    private final Map<String, Map<String, Set<String>>> gavTree = new HashMap<>();
 
     public DefinitionArtifactFilter addArtifact(String groupId, String artifactId, String version)
     {
         // groupId
         Map<String, Set<String>> artifactToVersions = this.gavTree.get(groupId);
         if (artifactToVersions == null)
-            this.gavTree.put(groupId, artifactToVersions = new HashMap());
+            this.gavTree.put(groupId, artifactToVersions = new HashMap<>());
 
         // artifactId
         Set<String> versions = artifactToVersions.get(artifactId);

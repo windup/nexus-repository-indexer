@@ -247,27 +247,4 @@ public class RepositoryIndexManager implements AutoCloseable
         public T done();
     }
 
-
-
-
-    /// Test - http://www.programcreek.com/java-api-examples/index.php?source_dir=maven-indexer-master/indexer-core/src/test/java/org/apache/maven/index/FullIndexNexusIndexerTest.java
-    void test() throws IOException{
-
-        {
-            BooleanQuery bq = new BooleanQuery();
-            bq.add(new TermQuery(new Term(ArtifactInfo.GROUP_ID, "maven-archetype" )), BooleanClause.Occur.MUST);
-            bq.add(new TermQuery(new Term(ArtifactInfo.ARTIFACT_ID, "maven-archetype" )), BooleanClause.Occur.MUST);
-            bq.add(new TermQuery(new Term(ArtifactInfo.VERSION, "maven-archetype" )), BooleanClause.Occur.MUST);
-            bq.add(new TermQuery(new Term(ArtifactInfo.PACKAGING, "jar" )), BooleanClause.Occur.MUST);
-
-            FlatSearchResponse response = this.indexer.searchFlat( new FlatSearchRequest( bq ) );
-        }
-
-        {
-            Query q = new TermQuery(new Term("coords", "org.jboss:parent:19"));
-            FlatSearchResponse response = this.indexer.searchFlat(new FlatSearchRequest(q));
-
-            //response.getResults().iterator().next()
-        }
-    }
 }

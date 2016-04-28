@@ -45,7 +45,7 @@ public class ArtifactDownloader
      */
     public List<RemoteRepository> getDefaultRepositories()
     {
-        return new LinkedList()
+        return new LinkedList<RemoteRepository>()
         {
             {
                 add(new RemoteRepository.Builder("jboss", "default", "http://repository.jboss.org/nexus/content/groups/public/").build());

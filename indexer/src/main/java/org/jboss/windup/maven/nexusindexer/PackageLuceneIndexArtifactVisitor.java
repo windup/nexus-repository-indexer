@@ -22,6 +22,8 @@ public class PackageLuceneIndexArtifactVisitor extends LuceneIndexArtifactVisito
 {
     private static final Logger LOG = Logger.getLogger(PackageLuceneIndexArtifactVisitor.class.getName());
     public static final String PACKAGE_INDEX_DIR_MARKER = "package-archive-map.lucene.marker";
+    public static final String FIELD_COORD = "coord";
+    public static final String FIELD_PACKAGE = "package";
 
     private ArtifactDownloader downloader = new ArtifactDownloader();
 
@@ -55,12 +57,15 @@ public class PackageLuceneIndexArtifactVisitor extends LuceneIndexArtifactVisito
         try
         {
             final Document doc = new Document();
-            doc.add(new StringField("coords", toCoords(artifact), Field.Store.YES));
+            final String coord = toCoordGAVPC(artifact);
+            doc.add(new StringField(FIELD_COORD, coord, Field.Store.YES));
+            LOG.info(" ---- Created a doc for " + coord);
             ZipUtil.scanClassesInJar(artifact.getFile().toPath(), true, new ZipUtil.Visitor<String>()
             {
-                public void visit(String item)
+                public void visit(String pkg)
                 {
-                    doc.add(new StringField("package", item, Field.Store.YES));
+                    doc.add(new StringField(FIELD_PACKAGE, pkg, Field.Store.YES));
+                    LOG.info("     ----- Storing: " + pkg);
                 }
             });
             docs.add(doc);
@@ -73,9 +78,15 @@ public class PackageLuceneIndexArtifactVisitor extends LuceneIndexArtifactVisito
     }
 
 
-    static String toCoords(Artifact artifact)
+    public static String toCoordGAVPC(Artifact artifact)
     {
-        return new StringBuilder(artifact.getGroupId()).append(':').append(artifact.getArtifactId()).append(':').append(artifact.getClassifier()).append(':').append(artifact.getExtension()).append(':').append(artifact.getVersion()).toString();
+        return new StringBuilder(
+                        artifact.getGroupId()).append(':')
+                .append(artifact.getArtifactId()).append(':')
+                .append(artifact.getVersion()).append(':')
+                .append(artifact.getExtension()).append(':')
+                .append(artifact.getClassifier())
+                .toString();
     }
 
 }

@@ -59,7 +59,7 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <mainClass>org.jboss.windup.rules.apps.java.archives.GenerateMetadataFile</mainClass>
+                            <mainClass>org.jboss.windup.maven.nexusindexer.GenerateMetadataFile</mainClass>
                             <arguments>
                                 <argument>central</argument>
                                 <argument>http://repo1.maven.org/maven2</argument>
@@ -67,6 +67,20 @@
                                 <argument>${user.home}/.windup/cache/nexus-indexes</argument>
                             </arguments>
                         </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <version>2.19.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
                     </execution>
                 </executions>
             </plugin>

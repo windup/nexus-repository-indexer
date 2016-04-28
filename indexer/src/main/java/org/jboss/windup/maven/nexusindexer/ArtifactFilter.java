@@ -20,7 +20,7 @@ public interface ArtifactFilter
 
     public static final class AndFilter implements ArtifactFilter
     {
-        List<ArtifactFilter> filters = new ArrayList();
+        List<ArtifactFilter> filters = new ArrayList<>();
         boolean or = false;
 
         public AndFilter(ArtifactFilter... filters_)

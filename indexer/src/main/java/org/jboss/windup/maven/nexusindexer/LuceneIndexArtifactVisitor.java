@@ -33,6 +33,13 @@ public class LuceneIndexArtifactVisitor implements RepositoryIndexManager.Artifa
     private final IndexWriter indexWriter;
     private SimpleFSDirectory luceneOutputDirResource;
 
+    public static final String SHA1 = "sha1";
+    public static final String GROUP_ID = "groupId";
+    public static final String ARTIFACT_ID = "artifactId";
+    public static final String PACKAGING = "packaging";
+    public static final String CLASSIFIER = "classifier";
+    public static final String VERSION = "version";
+
 
     public LuceneIndexArtifactVisitor(File outputDir, ArtifactFilter filter)
     {
@@ -83,12 +90,12 @@ public class LuceneIndexArtifactVisitor implements RepositoryIndexManager.Artifa
     protected Iterable<Document> artifactToDocs(ArtifactInfo artifact)
     {
         Document outputDoc = new Document();
-        outputDoc.add(new StringField("sha1", artifact.getSha1(), Field.Store.YES));
-        outputDoc.add(new StringField("groupId", artifact.getGroupId(), Field.Store.YES));
-        outputDoc.add(new StringField("artifactId", artifact.getArtifactId(), Field.Store.YES));
-        outputDoc.add(new StringField("packaging", artifact.getPackaging(), Field.Store.YES));
-        outputDoc.add(new StringField("classifier", artifact.getClassifier(), Field.Store.YES));
-        outputDoc.add(new StringField("version", artifact.getVersion(), Field.Store.YES));
+        outputDoc.add(new StringField(SHA1, artifact.getSha1(), Field.Store.YES));
+        outputDoc.add(new StringField(GROUP_ID, artifact.getGroupId(), Field.Store.YES));
+        outputDoc.add(new StringField(ARTIFACT_ID, artifact.getArtifactId(), Field.Store.YES));
+        outputDoc.add(new StringField(PACKAGING, artifact.getPackaging(), Field.Store.YES));
+        outputDoc.add(new StringField(CLASSIFIER, artifact.getClassifier(), Field.Store.YES));
+        outputDoc.add(new StringField(VERSION, artifact.getVersion(), Field.Store.YES));
         return Collections.singleton(outputDoc);
     }
 
