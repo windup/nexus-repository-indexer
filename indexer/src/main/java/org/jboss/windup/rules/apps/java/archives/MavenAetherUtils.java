@@ -54,20 +54,6 @@ public class MavenAetherUtils
     }
 
 
-    /**
-     * @return A list of repositories to use for resolving artifacts.
-     *      Currently Maven Central and JBoss Repository.
-     */
-    public static List<RemoteRepository> getRepositories(RepositorySystem system, RepositorySystemSession session)
-    {
-        return new LinkedList()
-        {
-            {
-                add(new RemoteRepository.Builder("jboss", "default", "http://repository.jboss.org/nexus/content/groups/public/").build());
-                add(new RemoteRepository.Builder("central", "default", "http://central.maven.org/maven2/").build());
-            }
-        };
-    }
 
     /**
      * @return A new Maven repository system capable of default HTTP transports.

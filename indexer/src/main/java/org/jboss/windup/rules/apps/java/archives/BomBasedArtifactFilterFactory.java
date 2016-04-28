@@ -25,6 +25,11 @@ public class BomBasedArtifactFilterFactory
 
     private final ArtifactDownloader downloader = new ArtifactDownloader();
 
+    /**
+     *
+     * @param coords Format: G:A:V;  classifier and packaging not supported for BOM.
+     * @return
+     */
     public ArtifactFilter createArtifactFilterFromBom(String coords)
     {
         Matcher mat = REGEX_GAVCP.matcher(coords);

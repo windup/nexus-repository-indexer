@@ -1,6 +1,8 @@
 package org.jboss.windup.rules.apps.java.archives;
 
 
+import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import org.eclipse.aether.RepositorySystem;
 import org.eclipse.aether.RepositorySystemSession;
@@ -16,14 +18,43 @@ import org.eclipse.aether.resolution.ArtifactResult;
 import org.jboss.windup.rules.apps.java.archives.aether.ManualRepositorySystemFactory;
 
 /**
+ * Downloads Maven artifacts.
  *
- *  @author <a href="http://ondra.zizka.cz/">Ondrej Zizka, zizka@seznam.cz</a>
+ * @author <a href="http://ondra.zizka.cz/">Ondrej Zizka, zizka@seznam.cz</a>
  */
 public class ArtifactDownloader
 {
+
     private final RepositorySystem system = ManualRepositorySystemFactory.newRepositorySystem( );
     private final RepositorySystemSession session = MavenAetherUtils.createSession(system, MavenAetherUtils.getWorkingRepoPath());
-    private final List<RemoteRepository> repositories = MavenAetherUtils.getRepositories(system, session);
+    private final List<RemoteRepository> repositories;
+
+    public ArtifactDownloader()
+    {
+        this.repositories = this.getDefaultRepositories();
+    }
+
+    public ArtifactDownloader(RemoteRepository... repositories)
+    {
+        this.repositories = Arrays.asList(repositories);
+    }
+
+    /**
+     * Returns a list of repositories to use for resolving artifacts,
+     * currently Maven Central and JBoss Repository.
+     * Override to use another list of repositories for the default constructor.
+     */
+    public List<RemoteRepository> getDefaultRepositories()
+    {
+        return new LinkedList()
+        {
+            {
+                add(new RemoteRepository.Builder("jboss", "default", "http://repository.jboss.org/nexus/content/groups/public/").build());
+                add(new RemoteRepository.Builder("central", "default", "http://central.maven.org/maven2/").build());
+            }
+        };
+    }
+
 
 
     public Artifact downloadArtifact(Artifact artifact_)
@@ -49,7 +80,7 @@ public class ArtifactDownloader
     /**
      * @return Normal or managed dependencies of given artifact.
      */
-    List<Dependency> getDependenciesFor(Artifact artifact, boolean managed)
+    public List<Dependency> getDependenciesFor(Artifact artifact, boolean managed)
     {
         try
         {

@@ -18,7 +18,7 @@ public class DefinitionArtifactFilter implements ArtifactFilter
 {
     private static final Logger LOG = Logger.getLogger( DefinitionArtifactFilter.class.getName() );
 
-    private static final String ANY_MATCHES = null; //"org.jboss.nexusIndexer.ANYTHING_MATCHES";
+    public static final String ANY_MATCHES = null; //"org.jboss.nexusIndexer.ANYTHING_MATCHES";
 
     /**
      * A special structure:

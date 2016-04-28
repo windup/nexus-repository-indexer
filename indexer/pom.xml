@@ -11,7 +11,7 @@
 
     <artifactId>nexus-indexer</artifactId>
 
-    <name>Windup: Nexus Indexer</name>
+    <name>Windup: Nexus Indexer - Core</name>
 
     <properties>
         <version.windup>2.5.0-SNAPSHOT</version.windup>
