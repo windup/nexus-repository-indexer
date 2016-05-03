@@ -13,7 +13,7 @@
     <version>6-SNAPSHOT</version>
     <packaging>pom</packaging>
 
-    <name>Windup: Nexus Indexer Parent</name>
+    <name>Windup: Nexus Indexer - Parent</name>
 
     <modules>
         <module>indexer</module>

@@ -14,7 +14,10 @@
             <directory>${project.build.directory}</directory>
             <outputDirectory>/</outputDirectory>
             <includes>
+                <!-- SHA1 checksums -->
                 <include>lucene/**/*</include>
+                <!-- Package -> Maven coordinates -->
+                <include>lucene-packages/**/*</include>
             </includes>
         </fileSet>
     </fileSets>
