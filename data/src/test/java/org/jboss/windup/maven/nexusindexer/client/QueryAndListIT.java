@@ -29,7 +29,7 @@ public class QueryAndListIT
         File indexDir = new File("target/", RepositoryIndexManager.LUCENE_SUBDIR_PACKAGES);
         LuceneIndexServiceBase indexService = new LuceneIndexServiceBase(indexDir);
 
-        List<String> artifacts = new ArrayList<>(64);
+        final List<String> artifacts = new ArrayList<>(64);
         // org.hibernate:hibernate-core::jar:4.3.8.Final
         indexService.findByField(DocTo.Fields.PACKAGE, "org.hibernate.dialect",  100, new ZipUtil.Visitor<Document>()
         {

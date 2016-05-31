@@ -56,14 +56,6 @@ public interface DocTo<TargetType>
     };
 
     public static final Pattern REGEX_GAVCP = Pattern.compile("([^: ]+):([^: ]+):([^: ]+):([^: ]+):([^: ]+)");
-    
-    public static DefaultArtifact fromGAVPC(String coordGacev)
-    {
-        Matcher mat = REGEX_GAVCP.matcher(coordGacev);
-        if (!mat.matches())
-            throw new IllegalArgumentException("Wrong Maven coordinates format, must be G:A:V[:C[:P]] . " + coordGacev);
-        return new DefaultArtifact(mat.group(1), mat.group(2), mat.group(3), mat.group(4), mat.group(5));
-    }
 
     public static DocTo<String> COORD_GACEV = new DocTo<String>()
     {
