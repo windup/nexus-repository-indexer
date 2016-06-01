@@ -18,10 +18,7 @@ import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.store.Directory;
 import org.apache.lucene.store.SimpleFSDirectory;
 import org.apache.lucene.util.Bits;
-import org.jboss.windup.util.Checks;
-import org.jboss.windup.util.Logging;
-import org.jboss.windup.util.ZipUtil;
-import org.jboss.windup.util.exception.WindupException;
+import org.jboss.windup.maven.nexusindexer.ZipUtil;
 
 /**
  *
@@ -29,7 +26,7 @@ import org.jboss.windup.util.exception.WindupException;
  */
 public class LuceneIndexServiceBase implements Closeable
 {
-    private static final Logger LOG = Logging.get(LuceneIndexServiceBase.class);
+    private static final Logger LOG = Logger.getLogger(LuceneIndexServiceBase.class.getName());
 
     protected File directory;
     protected Directory index;
@@ -39,7 +36,8 @@ public class LuceneIndexServiceBase implements Closeable
 
     public LuceneIndexServiceBase(File directory)
     {
-        Checks.checkDirectoryToBeRead(directory, "Lucene index directory");
+        if (directory == null || !directory.exists() || !directory.isDirectory())
+            throw new IllegalArgumentException("Directory does not exist: " + directory);
 
         this.directory = directory;
         try
@@ -48,7 +46,7 @@ public class LuceneIndexServiceBase implements Closeable
         }
         catch (IOException e)
         {
-            throw new WindupException("Failed to load Lucene index due to: " + e.getMessage(), e);
+            throw new RuntimeException("Failed to load Lucene index due to: " + e.getMessage(), e);
         }
     }
 
@@ -119,7 +117,7 @@ public class LuceneIndexServiceBase implements Closeable
         }
         catch (IOException ex)
         {
-            throw new WindupException("Error finding document with: " + fieldName + " == " + value
+            throw new RuntimeException("Error finding document with: " + fieldName + " == " + value
                     + "\n    Visitor used: " + visitor
                     + "\n    " + ex.getMessage(), ex);
         }
@@ -127,7 +125,6 @@ public class LuceneIndexServiceBase implements Closeable
 
     /**
      * Visits each document having @fieldName field with @value using given visitor.
-     * @param maxHits Maximum number of top matching documents to visit.
      */
     public <T> T findSingle(String fieldName, String value, DocTo<T> converter)
     {
@@ -144,7 +141,7 @@ public class LuceneIndexServiceBase implements Closeable
         }
         catch (IOException ex)
         {
-            throw new WindupException("Error finding single document with: " + fieldName + " == " + value
+            throw new RuntimeException("Error finding single document with: " + fieldName + " == " + value
                     + "\n    " + ex.getMessage(), ex);
         }
     }

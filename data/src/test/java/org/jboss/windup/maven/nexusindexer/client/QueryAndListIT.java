@@ -12,7 +12,7 @@ import org.apache.lucene.search.TermQuery;
 import org.apache.maven.index.ArtifactInfo;
 import org.eclipse.aether.artifact.Artifact;
 import org.jboss.windup.maven.nexusindexer.RepositoryIndexManager;
-import org.jboss.windup.util.ZipUtil;
+import org.jboss.windup.maven.nexusindexer.ZipUtil;
 import org.junit.Assert;
 import org.junit.Ignore;
 import org.junit.Test;

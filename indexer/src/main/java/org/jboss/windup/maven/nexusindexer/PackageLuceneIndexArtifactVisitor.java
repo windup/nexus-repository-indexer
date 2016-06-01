@@ -12,7 +12,6 @@ import org.apache.lucene.document.StringField;
 import org.apache.maven.index.ArtifactInfo;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
-import org.jboss.windup.util.ZipUtil;
 
 /**
  *
