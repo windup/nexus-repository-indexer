@@ -10,7 +10,7 @@
 
     <groupId>org.jboss.windup.maven</groupId>
     <artifactId>nexus-indexer-parent</artifactId>
-    <version>6.2-SNAPSHOT</version>
+    <version>6.2</version>
     <packaging>pom</packaging>
 
     <name>Windup: Nexus Indexer - Parent</name>
@@ -41,7 +41,7 @@
     </build>
 
     <scm>
-        <tag>master</tag>
+        <tag>6.2</tag>
         <connection>${windup.scm.connection}</connection>
         <developerConnection>${windup.developer.connection}</developerConnection>
         <url>${windup.scm.url}</url>
