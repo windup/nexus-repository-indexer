@@ -54,6 +54,7 @@
                 <executions>
                     <!-- Generate the indexes. -->
                     <execution>
+                        <id>central</id>
                         <phase>compile</phase>
                         <goals>
                             <goal>java</goal>
@@ -68,6 +69,22 @@
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>jboss</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>org.jboss.windup.maven.nexusindexer.GenerateMetadataFile</mainClass>
+                            <arguments>
+                                <argument>jboss</argument>
+                                <argument>https://repository.jboss.org/nexus/content/repositories/releases/</argument>
+                                <argument>${project.build.directory}</argument>
+                                <argument>${user.home}/.windup/cache/nexus-indexes</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>                    
                 </executions>
             </plugin>
 
