@@ -1,6 +1,5 @@
 package org.jboss.windup.maven.nexusindexer;
 
-import org.jboss.windup.maven.nexusindexer.RepositoryIndexManager;
 import java.io.File;
 
 import org.jboss.forge.addon.dependencies.DependencyRepository;
@@ -19,8 +18,8 @@ public class RepositoryIndexManagerTest
                 "http://repo1.maven.org/maven2");
 
     @Test
-    public void testGeneateMetadataFile() throws Exception
+    public void testGenerateMetadataFile() throws Exception
     {
-        RepositoryIndexManager.generateMetadata(repository, dataDir, dataDir);
+        RepositoryIndexManager.generateMetadata(repository, dataDir, dataDir, RepositoryIndexManager.OutputFormat.LUCENE);
     }
 }

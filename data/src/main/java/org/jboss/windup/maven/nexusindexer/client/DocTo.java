@@ -1,12 +1,11 @@
 package org.jboss.windup.maven.nexusindexer.client;
 
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.lucene.document.Document;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.jboss.windup.maven.nexusindexer.LuceneIndexArtifactVisitor;
-import org.jboss.windup.maven.nexusindexer.PackageLuceneIndexArtifactVisitor;
+
 import static org.jboss.windup.maven.nexusindexer.client.DocTo.Fields.ARTIFACT_ID;
 import static org.jboss.windup.maven.nexusindexer.client.DocTo.Fields.CLASSIFIER;
 import static org.jboss.windup.maven.nexusindexer.client.DocTo.Fields.GROUP_ID;
@@ -34,9 +33,6 @@ public interface DocTo<TargetType>
         public static final String VERSION = LuceneIndexArtifactVisitor.VERSION;
 
         public static final String SHA1 = LuceneIndexArtifactVisitor.SHA1;
-
-        public static final String PACKAGE = PackageLuceneIndexArtifactVisitor.FIELD_PACKAGE; // No better place for now.
-        public static final String COORD_GAVCP = PackageLuceneIndexArtifactVisitor.FIELD_COORD; // No better place for now.
     }
 
     public static DocTo<Artifact> ARTIFACT = new DocTo<Artifact>()
@@ -44,14 +40,6 @@ public interface DocTo<TargetType>
         public Artifact convert(Document doc)
         {
             return new DefaultArtifact(doc.get(GROUP_ID), doc.get(ARTIFACT_ID), doc.get(CLASSIFIER), doc.get(PACKAGING), doc.get(VERSION));
-        }
-    };
-
-    public static DocTo<String> COORD_GAVCP_TAKEOVER = new DocTo<String>()
-    {
-        public String convert(Document doc)
-        {
-            return doc.get(Fields.COORD_GAVCP);
         }
     };
 

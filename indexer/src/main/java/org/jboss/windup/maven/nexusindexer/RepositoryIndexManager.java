@@ -3,7 +3,6 @@ package org.jboss.windup.maven.nexusindexer;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -45,6 +44,11 @@ public class RepositoryIndexManager implements AutoCloseable
 {
     private static final Logger LOG = Logger.getLogger(RepositoryIndexManager.class.getName());
 
+    public enum OutputFormat {
+        TEXT,
+        LUCENE
+    }
+
     // Predefined BOMs. See http://repository.jboss.org/nexus/content/groups/public/org/jboss/bom/
     private static final String JBOSS_PARENT_20 = "org.jboss:jboss-parent:20";
     private static final String BOM_EAP7_TOOLS  = "org.jboss.bom:jboss-javaee-7.0-eap-with-tools:7.0.0-SNAPSHOT";
@@ -68,14 +72,14 @@ public class RepositoryIndexManager implements AutoCloseable
      * Download the index for the given {@link DependencyRepository} and store the results at the specified output {@link File}
      * directory.
      */
-    public static void generateMetadata(DependencyRepository repository, File indexDir, File outputDir) throws Exception
+    public static void generateMetadata(DependencyRepository repository, File indexDir, File outputDir, OutputFormat format) throws Exception
     {
         try (RepositoryIndexManager manager = new RepositoryIndexManager(indexDir, repository))
         {
             LOG.info("Downloading or updating index into " + indexDir.getPath());
             manager.downloadIndexAndUpdate();
             LOG.info("Writing selected Nexus index data to " + outputDir.getPath());
-            manager.writeMetadataTo(outputDir, repository);
+            manager.writeMetadataTo(outputDir, repository, format);
         }
     }
 
@@ -144,10 +148,8 @@ public class RepositoryIndexManager implements AutoCloseable
 
     /**
      * Passes all artifacts from the index to the visitors.
-     *
-     * @see org.jboss.windup.rules.apps.java.archives.config.ArchiveIdentificationConfigLoadingRuleProvider
      */
-    private void writeMetadataTo(File outDir, DependencyRepository repository) throws IOException
+    private void writeMetadataTo(File outDir, DependencyRepository repository, OutputFormat outputFormat) throws IOException
     {
         outDir.mkdirs();
 
@@ -158,17 +160,24 @@ public class RepositoryIndexManager implements AutoCloseable
 
 
         final File textMetadataFile = getMetadataFile(repository, outDir);
-        SortingLineWriterArtifactVisitor writerVisitor = new SortingLineWriterArtifactVisitor(textMetadataFile, ArtifactFilter.LIBRARIES);
+        final List<RepositoryIndexManager.ArtifactVisitor<Object>> visitors = new ArrayList<>();
 
-        LuceneIndexArtifactVisitor basicIndexerVisitor = new LuceneIndexArtifactVisitor(new File(outDir, LUCENE_SUBDIR_CHECKSUMS), ArtifactFilter.LIBRARIES);
+        if (outputFormat.equals(OutputFormat.TEXT))
+        {
+            SortingLineWriterArtifactVisitor writerVisitor = new SortingLineWriterArtifactVisitor(textMetadataFile, ArtifactFilter.LIBRARIES);
+            visitors.add(writerVisitor);
+        } else if (outputFormat.equals(OutputFormat.LUCENE))
+        {
+            LuceneIndexArtifactVisitor basicIndexerVisitor = new LuceneIndexArtifactVisitor(new File(outDir, LUCENE_SUBDIR_CHECKSUMS), ArtifactFilter.LIBRARIES);
+            visitors.add(basicIndexerVisitor);
+        }
+
 
         //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss", "jboss-parent", "19");
         //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss.bom", "jboss-eap-javaee7", "7.0.0-SNAPSHOT");
         //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss.bom", "jboss-javaee-7.0-eap-with-tools", "7.0.0-SNAPSHOT");
         ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom(BOM_EAP7_TOOLS);
         ArtifactFilter.AndFilter libsBomFilter = new ArtifactFilter.AndFilter(ArtifactFilter.LIBRARIES, bomFilter);
-        PackageLuceneIndexArtifactVisitor packagesIndexerVisitor = new PackageLuceneIndexArtifactVisitor(new File(outDir, LUCENE_SUBDIR_PACKAGES), libsBomFilter);
-
 
         for (int i = 0; i < reader.maxDoc(); i++)
         {
@@ -188,7 +197,7 @@ public class RepositoryIndexManager implements AutoCloseable
             artifact.setPackaging(StringUtils.defaultString(artifact.getPackaging()));
             artifact.setClassifier(StringUtils.defaultString(artifact.getClassifier()));
 
-            for (ArtifactVisitor<Object> visitor : Arrays.asList(writerVisitor, basicIndexerVisitor, packagesIndexerVisitor))
+            for (ArtifactVisitor<Object> visitor : visitors)
             {
                 try {
                     visitor.visit(artifact);
@@ -200,23 +209,13 @@ public class RepositoryIndexManager implements AutoCloseable
         }
 
 
-        try {
-            writerVisitor.done();
-        }
-        catch (Exception e) {
-            LOG.log(Level.SEVERE, "Failed finishing " + writerVisitor, e);
-        }
-        try {
-            basicIndexerVisitor.done();
-        }
-        catch (Exception e) {
-            LOG.log(Level.SEVERE, "Failed finishing " + basicIndexerVisitor, e);
-        }
-        try {
-            packagesIndexerVisitor.done();
-        } catch (Exception e)
+        for (ArtifactVisitor<Object> visitor : visitors)
         {
-            LOG.log(Level.SEVERE, "Failed finishing " + basicIndexerVisitor, e);
+            try {
+                visitor.done();
+            } catch (Exception e) {
+                    LOG.log(Level.SEVERE, "Failed finishing " + visitor, e);
+            }
         }
         this.context.releaseIndexSearcher(searcher);
     }

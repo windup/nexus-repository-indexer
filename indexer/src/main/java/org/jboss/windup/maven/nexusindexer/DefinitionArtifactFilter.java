@@ -47,9 +47,8 @@ public class DefinitionArtifactFilter implements ArtifactFilter
 
 
     @Override
-    public boolean accept(ArtifactInfo artifact)
-    {
-        Map<String, Set<String>> artifactIdToVersions = this.gavTree.get(artifact.getGroupId());
+    public boolean accept(String sha1, String group, String artifactId, String version, String packaging, String classifier) {
+        Map<String, Set<String>> artifactIdToVersions = this.gavTree.get(group);
         if (artifactIdToVersions == null)
             return false;
 
@@ -58,21 +57,20 @@ public class DefinitionArtifactFilter implements ArtifactFilter
         if (anyArtifactId != null){
             if(anyArtifactId.contains(ANY_MATCHES))
                 return true; // foo:*:* definition found
-            if(anyArtifactId.contains(artifact.getVersion()))
+            if(anyArtifactId.contains(version))
                 return true; // foo:*:1.0 definition found
         }
 
         // Given artifactId
-        Set<String> givenArtifactId = artifactIdToVersions.get(artifact.getArtifactId());
+        Set<String> givenArtifactId = artifactIdToVersions.get(artifactId);
         if (givenArtifactId == null)
             return false; // No matching G:A.
 
         if(givenArtifactId.contains(ANY_MATCHES))
             return true;  // foo:bar:* definition found
-        if(givenArtifactId.contains(artifact.getVersion()))
+        if(givenArtifactId.contains(version))
             return true;  // foo:bar:1.0 definition found
 
         return false;     // No matching G:A:V.
     }
-
 }

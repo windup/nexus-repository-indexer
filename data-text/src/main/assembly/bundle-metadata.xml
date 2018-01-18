@@ -15,7 +15,7 @@
             <outputDirectory>/</outputDirectory>
             <includes>
                 <!-- SHA1 checksums -->
-                <include>lucene/**/*</include>
+                <include>**/*.archive-metadata.txt</include>
             </includes>
         </fileSet>
     </fileSets>
