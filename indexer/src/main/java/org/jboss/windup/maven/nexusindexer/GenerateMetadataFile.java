@@ -17,13 +17,15 @@ public class GenerateMetadataFile
 
     public static void main(String[] args) throws Exception
     {
-        if (args.length < 3)
+        if (args.length < 4)
             printUsage();
 
-        String repositoryId = args[0];
-        String repositoryUrl = args[1];
-        String outputDirStr = args[2];
-        String indexDirStr = args.length >= 4 ? args[3] : outputDirStr;
+        String formatString = args[0].toUpperCase();
+        RepositoryIndexManager.OutputFormat format = RepositoryIndexManager.OutputFormat.valueOf(formatString);
+        String repositoryId = args[1];
+        String repositoryUrl = args[2];
+        String outputDirStr = args[3];
+        String indexDirStr = args.length >= 5 ? args[4] : outputDirStr;
 
 
         File outputDir = new File(outputDirStr);
@@ -34,7 +36,7 @@ public class GenerateMetadataFile
         if (!RepositoryIndexManager.metadataExists(repository, outputDir))
         {
             log.info("Generating metadata file: [" + RepositoryIndexManager.getMetadataFile(repository, outputDir) + "]");
-            RepositoryIndexManager.generateMetadata(repository, indexDir, outputDir);
+            RepositoryIndexManager.generateMetadata(repository, indexDir, outputDir, format);
         }
         else
         {

@@ -8,41 +8,16 @@
         <version>6.6-SNAPSHOT</version>
     </parent>
 
-    <artifactId>nexus-indexer-data</artifactId>
+    <artifactId>nexus-indexer-data-text</artifactId>
     <packaging>jar</packaging>
 
-    <name>Windup: Nexus Indexer - Data</name>
+    <name>Windup: Nexus Indexer - Data (Text Version)</name>
 
     <dependencies>
         <dependency>
             <groupId>org.jboss.windup.maven</groupId>
             <artifactId>nexus-indexer</artifactId>
             <version>${project.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-core</artifactId>
-            <version>7.0.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-analyzers-common</artifactId>
-            <version>7.0.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-highlighter</artifactId>
-            <version>7.0.0</version>
-            <scope>provided</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.apache.lucene</groupId>
-            <artifactId>lucene-queryparser</artifactId>
-            <version>7.0.0</version>
-            <scope>provided</scope>
         </dependency>
 
         <!-- Test dependencies -->
@@ -56,30 +31,6 @@
 
     <build>
         <plugins>
-            <plugin>
-                <artifactId>maven-dependency-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-data-text</id>
-                        <phase>process-resources</phase>
-                        <goals>
-                            <goal>unpack</goal>
-                        </goals>
-                        <configuration>
-                            <outputDirectory>${project.build.directory}/data-text</outputDirectory>
-                            <artifactItems>
-                                <artifactItem>
-                                    <groupId>org.jboss.windup.maven</groupId>
-                                    <artifactId>nexus-indexer-data-text</artifactId>
-                                    <type>zip</type>
-                                    <version>${project.version}</version>
-                                </artifactItem>
-                            </artifactItems>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
             <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <executions>
@@ -110,14 +61,33 @@
                             <goal>java</goal>
                         </goals>
                         <configuration>
-                            <classpathScope>test</classpathScope>
-                            <mainClass>org.jboss.windup.maven.nexusindexer.client.TextFileToLucene7Converter</mainClass>
+                            <mainClass>org.jboss.windup.maven.nexusindexer.GenerateMetadataFile</mainClass>
                             <arguments>
-                                <argument>${project.build.directory}/data-text</argument>
-                                <argument>${project.build.directory}/lucene</argument>
+                                <argument>text</argument>
+                                <argument>central</argument>
+                                <argument>http://repo1.maven.org/maven2</argument>
+                                <argument>${project.build.directory}</argument>
+                                <argument>${user.home}/.windup/cache/nexus-indexes</argument>
                             </arguments>
                         </configuration>
                     </execution>
+                    <execution>
+                        <id>jboss</id>
+                        <phase>compile</phase>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>org.jboss.windup.maven.nexusindexer.GenerateMetadataFile</mainClass>
+                            <arguments>
+                                <argument>text</argument>
+                                <argument>jboss</argument>
+                                <argument>https://repository.jboss.org/nexus/content/repositories/releases/</argument>
+                                <argument>${project.build.directory}</argument>
+                                <argument>${user.home}/.windup/cache/nexus-indexes</argument>
+                            </arguments>
+                        </configuration>
+                    </execution>                    
                 </executions>
             </plugin>
 

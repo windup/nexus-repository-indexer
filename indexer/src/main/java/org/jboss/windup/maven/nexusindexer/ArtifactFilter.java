@@ -5,6 +5,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+
 import org.apache.maven.index.ArtifactInfo;
 
 
@@ -15,8 +16,12 @@ import org.apache.maven.index.ArtifactInfo;
  */
 public interface ArtifactFilter
 {
-    boolean accept(ArtifactInfo artifact);
+    boolean accept(String sha1, String group, String artifactId, String version, String packaging, String classifier);
 
+    default boolean accept(ArtifactInfo artifact)
+    {
+        return accept(artifact.getSha1(), artifact.getGroupId(), artifact.getArtifactId(), artifact.getVersion(), artifact.getPackaging(), artifact.getClassifier());
+    }
 
     public static final class AndFilter implements ArtifactFilter
     {
@@ -34,11 +39,11 @@ public interface ArtifactFilter
             this.or = or;
         }
 
-        @Override public boolean accept(ArtifactInfo artifact)
-        {
+        @Override
+        public boolean accept(String sha1, String group, String artifactId, String version, String packaging, String classifier) {
             for (ArtifactFilter filter : filters)
             {
-                if (filter.accept(artifact) ^ !or)
+                if (filter.accept(sha1, group, artifactId, version, packaging, classifier) ^ !or)
                     return or;
             }
             return !or;
@@ -163,34 +168,22 @@ public interface ArtifactFilter
             + " pdf eclipse-feature eclipse-plugin swf jangaroo swc html xsd txt apk jdocbook nexus-plugin"
             + " sonar-plugin nbm yml maven-archetype maven-plugin".split(" ")));
 
-        private ArtifactInfo cachedLast = null;
-        private boolean cachedLastResult = false;
-
         @Override
-        public boolean accept(ArtifactInfo artifact)
+        public boolean accept(String sha1, String group, String artifactId, String version, String packaging, String classifier)
         {
-            if(artifact == cachedLast) // Yes, a reference comparison.
-                return cachedLastResult;
-
-            cachedLast = artifact;
-            cachedLastResult = false;
-
-            if (artifact == null)
+            if (sha1 == null)
                 return false;
-            if (artifact.getSha1() == null)
+            if (sha1.length() != 40)
                 return false;
-            if (artifact.getSha1().length() != 40)
+            if ("tests".equals(artifactId))
                 return false;
-            if ("tests".equals(artifact.getArtifactId()))
+            if ("pom".equals(packaging))
                 return false;
-            if ("pom".equals(artifact.getPackaging()))
+            if (SKIPPED_CLASSIFIERS.contains(classifier))
                 return false;
-            if (SKIPPED_CLASSIFIERS.contains(artifact.getClassifier()))
-                return false;
-            if (SKIPPED_PACKAGINGS.contains(artifact.getPackaging()))
+            if (SKIPPED_PACKAGINGS.contains(packaging))
                 return false;
 
-            cachedLastResult = true;
             return true;
         }
     };

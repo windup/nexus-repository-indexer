@@ -17,6 +17,7 @@
 
     <modules>
         <module>indexer</module>
+        <module>data-text</module>
         <module>data</module>
     </modules>
 

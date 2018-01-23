@@ -53,7 +53,7 @@ public class LuceneIndexServiceBase implements Closeable
 
     private void initialize() throws IOException
     {
-        this.index = new SimpleFSDirectory(this.directory);
+        this.index = new SimpleFSDirectory(this.directory.toPath());
         this.reader = DirectoryReader.open(index);
         this.searcher = new IndexSearcher(reader);
     }
