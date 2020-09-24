@@ -15,7 +15,7 @@ public class RepositoryIndexManagerTest
 {
     private final File dataDir = new File("target/");
     private final DependencyRepository repository = new DependencyRepository("central",
-                "http://repo1.maven.org/maven2");
+                "https://repo1.maven.org/maven2");
 
     @Test
     public void testGenerateMetadataFile() throws Exception
