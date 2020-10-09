@@ -1,19 +1,21 @@
 package org.jboss.windup.maven.nexusindexer;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.logging.Level;
-import java.util.logging.Logger;
-
 import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiFields;
+import org.apache.lucene.index.Term;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.PrefixQuery;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TopDocs;
+import org.apache.lucene.search.TotalHitCountCollector;
 import org.apache.lucene.util.Bits;
 import org.apache.maven.index.ArtifactInfo;
+import org.apache.maven.index.ArtifactInfoRecord;
+import org.apache.maven.index.Field;
 import org.apache.maven.index.Indexer;
 import org.apache.maven.index.context.IndexCreator;
 import org.apache.maven.index.context.IndexUtils;
@@ -32,6 +34,17 @@ import org.codehaus.plexus.PlexusContainer;
 import org.codehaus.plexus.PlexusContainerException;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.jboss.forge.addon.dependencies.DependencyRepository;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.net.URL;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 
 /**
@@ -208,6 +221,77 @@ public class RepositoryIndexManager implements AutoCloseable
             }
         }
 
+        // https://issues.redhat.com/browse/WINDUP-2765 to fix https://issues.sonatype.org/browse/OSSRH-60950
+        final BooleanQuery missingArtifactsQuery = new BooleanQuery();
+        missingArtifactsQuery.add(new PrefixQuery(new Term(ArtifactInfo.GROUP_ID, "org.springframework.")), BooleanClause.Occur.MUST);
+        missingArtifactsQuery.add(new PrefixQuery(new Term(ArtifactInfo.ARTIFACT_ID, "spring-")), BooleanClause.Occur.MUST);
+        missingArtifactsQuery.add(new TermQuery(new Term(ArtifactInfo.PACKAGING, "module")), BooleanClause.Occur.MUST);
+        final TotalHitCountCollector missingArtifactsQueryCountCollector = new TotalHitCountCollector();
+        searcher.search(missingArtifactsQuery, missingArtifactsQueryCountCollector);
+        final int artifactsCount = missingArtifactsQueryCountCollector.getTotalHits();
+        LOG.log(Level.INFO, String.format("Found %d artifacts to be fixed in repository %s", artifactsCount, repository.getId()));
+        if (artifactsCount > 0) {
+            final TopDocs docs = searcher.search(missingArtifactsQuery, artifactsCount);
+            Arrays.asList(searcher.search(missingArtifactsQuery, docs.totalHits).scoreDocs)
+                    .forEach(doc -> {
+                                try {
+                                    final String uInfo = searcher.doc(doc.doc).get(ArtifactInfo.UINFO);
+                                    final String[] gav = uInfo.split("\\" + ArtifactInfoRecord.FS);
+                                    // e.g. https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-web/2.3.2.RELEASE/spring-boot-starter-web-2.3.2.RELEASE-javadoc.jar.sha1
+                                    final String sha1FileUrl = new StringBuilder(repository.getUrl())
+                                            // groupId
+                                            .append("/").append(gav[0].replace('.', '/'))
+                                            // artifactId
+                                            .append("/").append(gav[1])
+                                            // version
+                                            .append("/").append(gav[2])
+                                            // file name
+                                            .append("/").append(gav[1]).append("-").append(gav[2]).append(".jar.sha1").toString();
+                                    final URL url = new URL(sha1FileUrl);
+                                    final BufferedReader in = new BufferedReader(new InputStreamReader(url.openStream()));
+                                    // the hash sha1 file should be always a 1 line text file
+                                    final String sha1 = in.readLine();
+                                    in.close();
+                                    // check the hash has the expected length
+                                    if (!(sha1 != null && sha1.length() == 40)) {
+                                        LOG.log(Level.WARNING, String.format("Dependency %s the retrieve hash (%s) is not valid so it will be skipped", uInfo, sha1));
+                                        return;
+                                    }
+                                    LOG.log(Level.FINE, String.format("Dependency %s hash is %s", uInfo, sha1));
+                                    // check the doc is really not in the index because when the issue on the Maven Index will be fixed
+                                    // this check will prevent our indexer to add twice the same Artifact to our index
+                                    final BooleanQuery hashQuery = new BooleanQuery();
+                                    hashQuery.add(new TermQuery(new Term(ArtifactInfo.SHA1, sha1)), BooleanClause.Occur.MUST);
+                                    hashQuery.add(new TermQuery(new Term(ArtifactInfo.GROUP_ID, gav[0])), BooleanClause.Occur.MUST);
+                                    hashQuery.add(new TermQuery(new Term(ArtifactInfo.ARTIFACT_ID, gav[1])), BooleanClause.Occur.MUST);
+                                    hashQuery.add(new TermQuery(new Term(ArtifactInfo.VERSION, gav[2])), BooleanClause.Occur.MUST);
+                                    // must add also the classifier condition to search only for jars
+                                    // because there are artifacts with the same hash
+                                    // e.g. https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-web/2.3.2.RELEASE/spring-boot-starter-web-2.3.2.RELEASE.jar.sha1 85f79121fdaabcbcac085d0d4aad34af9f8dbba2
+                                    // and https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-web/2.3.2.RELEASE/spring-boot-starter-web-2.3.2.RELEASE-javadoc.jar.sha1 85f79121fdaabcbcac085d0d4aad34af9f8dbba2
+                                    hashQuery.add(new TermQuery(new Term(ArtifactInfo.CLASSIFIER, Field.NOT_PRESENT)), BooleanClause.Occur.MUST);
+                                    final TopDocs jarFound = searcher.search(hashQuery, 1);
+                                    if (jarFound.totalHits == 0) {
+                                        final ArtifactInfo artifactInfo = new ArtifactInfo(repository.getId(), gav[0], gav[1], gav[2], StringUtils.defaultString(null), "jar");
+                                        artifactInfo.setSha1(sha1);
+                                        artifactInfo.setPackaging("jar");
+                                        for (ArtifactVisitor<Object> visitor : visitors) {
+                                            try {
+                                                visitor.visit(artifactInfo);
+                                            } catch (Exception e) {
+                                                LOG.log(Level.SEVERE, String.format("Failed processing %s with %s\n    %s", artifactInfo, visitor, e.getMessage()));
+                                            }
+                                        }
+                                    } else {
+                                        LOG.log(Level.INFO, String.format("Dependency %s is NOT missing anymore in the source index", uInfo));
+                                    }
+                                } catch (IOException e) {
+                                    LOG.log(Level.SEVERE, String.format("Document %s management has failed", doc));
+                                    e.printStackTrace();
+                                }
+                            }
+                    );
+        }
 
         for (ArtifactVisitor<Object> visitor : visitors)
         {
