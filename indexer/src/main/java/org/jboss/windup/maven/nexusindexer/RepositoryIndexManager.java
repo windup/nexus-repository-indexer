@@ -8,7 +8,6 @@ import org.apache.lucene.index.Term;
 import org.apache.lucene.search.BooleanClause;
 import org.apache.lucene.search.BooleanQuery;
 import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.PrefixQuery;
 import org.apache.lucene.search.TermQuery;
 import org.apache.lucene.search.TopDocs;
 import org.apache.lucene.search.TotalHitCountCollector;
@@ -43,6 +42,7 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -222,17 +222,31 @@ public class RepositoryIndexManager implements AutoCloseable
         }
 
         // https://issues.redhat.com/browse/WINDUP-2765 to fix https://issues.sonatype.org/browse/OSSRH-60950
+        // Create a boolean query with OR'd conditions so that if a new condition is found to retrieve missing
+        // artifacts coordinates, it will be just a matter of adding to this BooleanQuery
         final BooleanQuery missingArtifactsQuery = new BooleanQuery();
-        missingArtifactsQuery.add(new PrefixQuery(new Term(ArtifactInfo.GROUP_ID, "org.springframework.")), BooleanClause.Occur.MUST);
-        missingArtifactsQuery.add(new PrefixQuery(new Term(ArtifactInfo.ARTIFACT_ID, "spring-")), BooleanClause.Occur.MUST);
-        missingArtifactsQuery.add(new TermQuery(new Term(ArtifactInfo.PACKAGING, "module")), BooleanClause.Occur.MUST);
+        // Query for searching all the docs in the index with the 'packaging' (aka the extension) that is 'module'
+        // e.g. Lucene query "+g:org.springframework.boot +a:spring-boot-starter-tomcat  +v:2.3.* +p:module"
+        // https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-web/2.3.2.RELEASE/
+        final TermQuery artifactsWithModuleQuery = new TermQuery(new Term(ArtifactInfo.PACKAGING, "module"));
+        // Query for searching all the docs in the index with the 'packaging' (aka the extension) that is 'pom.sha512'
+        // e.g. Lucene query "+g:org.springdoc +a:springdoc-openapi-common +v:1.4.? +p:pom.sha512"
+        // https://repo1.maven.org/maven2/org/springdoc/springdoc-openapi-common/1.4.3/
+        // https://repo1.maven.org/maven2/org/apache/ant/ant-commons-logging/1.8.0/
+        final TermQuery artifactsWithPomSha512Query = new TermQuery(new Term(ArtifactInfo.PACKAGING, "pom.sha512"));
+
+        missingArtifactsQuery.add(artifactsWithModuleQuery, BooleanClause.Occur.SHOULD);
+        missingArtifactsQuery.add(artifactsWithPomSha512Query, BooleanClause.Occur.SHOULD);
+
         final TotalHitCountCollector missingArtifactsQueryCountCollector = new TotalHitCountCollector();
         searcher.search(missingArtifactsQuery, missingArtifactsQueryCountCollector);
         final int artifactsCount = missingArtifactsQueryCountCollector.getTotalHits();
-        LOG.log(Level.INFO, String.format("Found %d artifacts to be fixed in repository %s", artifactsCount, repository.getId()));
+        LOG.log(Level.INFO, String.format("Found %d artifacts to be added in repository %s", artifactsCount, repository.getId()));
+        final AtomicInteger managed = new AtomicInteger(0);
+        final AtomicInteger errors = new AtomicInteger(0);
         if (artifactsCount > 0) {
-            final TopDocs docs = searcher.search(missingArtifactsQuery, artifactsCount);
-            Arrays.asList(searcher.search(missingArtifactsQuery, docs.totalHits).scoreDocs)
+            Arrays.asList(searcher.search(missingArtifactsQuery, artifactsCount).scoreDocs)
+                    .parallelStream()
                     .forEach(doc -> {
                                 try {
                                     final String uInfo = searcher.doc(doc.doc).get(ArtifactInfo.UINFO);
@@ -279,18 +293,23 @@ public class RepositoryIndexManager implements AutoCloseable
                                             try {
                                                 visitor.visit(artifactInfo);
                                             } catch (Exception e) {
-                                                LOG.log(Level.SEVERE, String.format("Failed processing %s with %s\n    %s", artifactInfo, visitor, e.getMessage()));
+                                                LOG.log(Level.SEVERE, String.format("Failed processing %s with %s%n    %s", artifactInfo, visitor, e.getMessage()));
                                             }
+                                        }
+                                        if (managed.incrementAndGet() % 5000 == 0)
+                                        {
+                                            LOG.log(Level.INFO, String.format("Managed %d/%d artifacts ", managed.get(), artifactsCount));
                                         }
                                     } else {
                                         LOG.log(Level.INFO, String.format("Dependency %s is NOT missing anymore in the source index", uInfo));
                                     }
                                 } catch (IOException e) {
-                                    LOG.log(Level.SEVERE, String.format("Document %s management has failed", doc));
-                                    e.printStackTrace();
+                                    errors.incrementAndGet();
+                                    LOG.log(Level.WARNING, String.format("Document %s management has failed%n    %s", doc, e.getMessage()));
                                 }
                             }
                     );
+            LOG.log(Level.INFO, String.format("Managed %d/%d artifacts with %d artifacts not managed for problems (check log above)", managed.get(), artifactsCount, errors.get()));
         }
 
         for (ArtifactVisitor<Object> visitor : visitors)
