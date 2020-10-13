@@ -1,14 +1,17 @@
 package org.jboss.windup.maven.nexusindexer;
 
-import org.jboss.windup.maven.nexusindexer.ArtifactDownloader;
-import java.util.List;
+import org.apache.maven.index.ArtifactInfo;
 import org.eclipse.aether.artifact.Artifact;
 import org.eclipse.aether.artifact.DefaultArtifact;
 import org.eclipse.aether.graph.Dependency;
 import org.eclipse.aether.repository.RemoteRepository;
-import org.junit.Test;
-import static org.junit.Assert.*;
 import org.junit.Assume;
+import org.junit.Test;
+
+import java.io.IOException;
+import java.util.List;
+
+import static org.junit.Assert.*;
 
 
 /**
@@ -80,6 +83,18 @@ public class ArtifactDownloaderTest
             List<Dependency> depsResult = instance.getDependenciesFor(depEl, false);
             assertTrue("Artifact contains expected normal dep", contains(depsResult, depApi));
         }
+    }
+
+    @Test
+    public void testGetJarSha1() throws IOException {
+        assertEquals("85f79121fdaabcbcac085d0d4aad34af9f8dbba2",
+                ArtifactDownloader.getJarSha1("https://repo1.maven.org/maven2",
+                        new ArtifactInfo("central", "org.springframework.boot", "spring-boot-starter-web", "2.3.2.RELEASE", null, "jar")));
+    }
+
+    @Test(expected = IOException.class)
+    public void testGetJarSha1ThrowsException() throws IOException {
+        ArtifactDownloader.getJarSha1("http://repo1.maven.org/maven2", new ArtifactInfo("central", "org.springframework.boot", "spring-boot-starter-web", "2.3.2.RELEASE", null, "jar"));
     }
 
     boolean contains(List<Dependency> deps, Artifact dep)
