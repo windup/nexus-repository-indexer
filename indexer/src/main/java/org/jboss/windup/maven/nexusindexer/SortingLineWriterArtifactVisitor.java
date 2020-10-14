@@ -8,6 +8,8 @@ import java.io.OutputStreamWriter;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Logger;
+
+import org.apache.commons.collections4.ListUtils;
 import org.apache.commons.collections4.list.TreeList;
 import org.apache.maven.index.ArtifactInfo;
 
@@ -22,7 +24,9 @@ public class SortingLineWriterArtifactVisitor implements RepositoryIndexManager.
     private final OutputStreamWriter writer;
     private final File outFile;
     // Use a TreeList because it is faster to insert and sort.
-    private final List<String> lines = new TreeList<>();
+    // synchronized to support concurrent multi-threads additions from parallel streams
+    // for managing the issue https://issues.redhat.com/browse/WINDUP-2765
+    private final List<String> lines = ListUtils.synchronizedList(new TreeList<>());
     private final ArtifactFilter filter;
 
 
