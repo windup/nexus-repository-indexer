@@ -1,0 +1,36 @@
+name: Create fixed Maven Central Index
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up JDK 8
+        uses: actions/setup-java@v1
+        with:
+          java-version: 8
+      - name: Cache Maven packages
+        uses: actions/cache@v2
+        with:
+          path: ~/.m2
+          key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
+          restore-keys: ${{ runner.os }}-m2
+      - name: Build Parent POM
+        run: mvn -B -N install -f pom.xml
+      - name: Build Nexus Indexer
+        run: mvn -B package -f indexer/pom.xml
+      - name: Create Nexus Index
+        run: mvn -f data-text/pom.xml install -DskipTests -P update-central-index
+      - name: Archive Nexus Index
+        uses: actions/upload-artifact@v2
+        with:
+          name: nexus-maven-repository-index.gz
+          path: data-text/target/nexus-maven-repository-index.gz
