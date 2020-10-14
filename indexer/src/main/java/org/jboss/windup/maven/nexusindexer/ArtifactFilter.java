@@ -120,7 +120,8 @@ public interface ArtifactFilter
             + " source sources src source-release project-src gf-project-src"
             + " test tests test-sources tests-sources test-javadoc tests-javadoc"
             + " maven-archetype maven-plugin"
-            + " bin app bundle image dist distribution assembly resources scripts";
+            + " bin app bundle image dist distribution assembly resources scripts"
+            + " module";
         private final Set<String> SKIPPED_CLASSIFIERS = new HashSet<>(Arrays.asList(SKIPPED.split(" ")));
 
 
