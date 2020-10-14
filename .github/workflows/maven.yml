@@ -1,4 +1,4 @@
-name: Java CI with Maven
+name: Create fixed Maven Central Index
 
 on:
   push:
@@ -23,8 +23,10 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
+      - name: Build Parent POM
+        run: mvn -B -N install -f pom.xml
       - name: Build Nexus Indexer
-        run: mvn -B package --file indexer/pom.xml
+        run: mvn -B package -f indexer/pom.xml
       - name: Create Nexus Index
         run: mvn -f data-text/pom.xml install -DskipTests -P update-central-index
       - name: Archive Nexus Index

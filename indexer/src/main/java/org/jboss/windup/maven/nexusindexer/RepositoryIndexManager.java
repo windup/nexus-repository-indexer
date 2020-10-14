@@ -297,6 +297,7 @@ public class RepositoryIndexManager implements AutoCloseable
                     }
                 });
         LOG.log(Level.INFO, String.format("Managed %d/%d artifacts with %d artifacts not managed for problems (check log above).%nTime to update the index", managed.get(), artifactsCount, errors.get()));
+        indexer.deleteArtifactsFromIndex(artifactsToBeDeleted, context);
         indexer.addArtifactsToIndex(artifactsToBeAdded, context);
         LOG.log(Level.INFO, String.format("Index updated so moving forward to pack it in %s", outputDir));
         final IndexPacker packer = plexusContainer.lookup(IndexPacker.class);
