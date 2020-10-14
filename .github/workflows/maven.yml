@@ -5,6 +5,10 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
+  schedule:
+    # * is a special character in YAML so you have to quote this string
+    # added the daily cron in the middle of the night, avoiding midnight
+    - cron:  '11 3 * * *'
 
 jobs:
   build:
@@ -34,3 +38,4 @@ jobs:
         with:
           name: nexus-maven-repository-index.gz
           path: data-text/target/nexus-maven-repository-index.gz
+          retention-days: 3
