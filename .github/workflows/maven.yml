@@ -26,7 +26,7 @@ jobs:
       - name: Build Parent POM
         run: mvn -B -N install -f pom.xml
       - name: Build Nexus Indexer
-        run: mvn -B package -f indexer/pom.xml
+        run: mvn -B install -f indexer/pom.xml
       - name: Create Nexus Index
         run: mvn -f data-text/pom.xml install -DskipTests -P update-central-index
       - name: Archive Nexus Index
