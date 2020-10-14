@@ -12,6 +12,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.apache.lucene.analysis.standard.StandardAnalyzer;
 import org.apache.lucene.document.Document;
 import org.apache.lucene.document.Field;
+import org.apache.lucene.document.StoredField;
 import org.apache.lucene.document.StringField;
 import org.apache.lucene.index.IndexWriter;
 import org.apache.lucene.index.IndexWriterConfig;
@@ -150,12 +151,12 @@ public class TextFileToLucene7Converter
     protected Iterable<Document> artifactToDocs(String sha1, String group, String artifactId, String version, String packaging, String classifier)
     {
         Document outputDoc = new Document();
-        outputDoc.add(new StringField(SHA1, sha1, Field.Store.YES));
-        outputDoc.add(new StringField(GROUP_ID, group, Field.Store.YES));
-        outputDoc.add(new StringField(ARTIFACT_ID, artifactId, Field.Store.YES));
-        outputDoc.add(new StringField(PACKAGING, packaging, Field.Store.YES));
-        outputDoc.add(new StringField(CLASSIFIER, classifier, Field.Store.YES));
-        outputDoc.add(new StringField(VERSION, version, Field.Store.YES));
+        outputDoc.add(new StringField(SHA1, sha1, Field.Store.NO));
+        outputDoc.add(new StoredField(GROUP_ID, group));
+        outputDoc.add(new StoredField(ARTIFACT_ID, artifactId));
+        outputDoc.add(new StoredField(PACKAGING, packaging));
+        outputDoc.add(new StoredField(CLASSIFIER, classifier));
+        outputDoc.add(new StoredField(VERSION, version));
         return Collections.singleton(outputDoc);
     }
 
