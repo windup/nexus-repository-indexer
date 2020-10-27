@@ -30,15 +30,8 @@ public class UpdateNexusIndex
 
         DependencyRepository repository = new DependencyRepository(repositoryId, repositoryUrl);
 
-        if (!RepositoryIndexManager.metadataExists(repository, outputDir))
-        {
-            log.info("Generating metadata file: [" + RepositoryIndexManager.getMetadataFile(repository, outputDir) + "]");
-            RepositoryIndexManager.updateNexusIndex(repository, indexDir, outputDir);
-        }
-        else
-        {
-            log.info("Metadata file already exists, not generating: [" + RepositoryIndexManager.getMetadataFile(repository, outputDir) + "]");
-        }
+        log.info(String.format("Generating index file: [%s]", outputDir));
+        RepositoryIndexManager.updateNexusIndex(repository, indexDir, outputDir);
     }
 
 
@@ -50,7 +43,7 @@ public class UpdateNexusIndex
         System.err.println("  Parameters:");
         System.err.println("    <repoId>           ID of the repository; used for generated file names.");
         System.err.println("    <repoUrl>          URL of the repository.");
-        System.err.println("    <outputDirectory>  Where to put the created mapping files.");
-        System.err.println("    <indexDirectory>   Where to store the repository index data files.");
+        System.err.println("    <outputDirectory>  Where to put the created index.");
+        System.err.println("    <indexDirectory>   Where to store the temporary Lucene index data files.");
     }
 }
