@@ -5,7 +5,7 @@
     <parent>
         <groupId>org.jboss.windup.maven</groupId>
         <artifactId>nexus-indexer-parent</artifactId>
-        <version>22.01.23.Final</version>
+        <version>22.01.24-SNAPSHOT</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
 
