@@ -121,12 +121,12 @@ public interface ArtifactFilter
             + " test tests test-sources tests-sources test-javadoc tests-javadoc"
             + " maven-archetype maven-plugin"
             + " bin app bundle image dist distribution assembly resources scripts"
-            + " module";
+            + " module kubernetes openshift helm";
         private final Set<String> SKIPPED_CLASSIFIERS = new HashSet<>(Arrays.asList(SKIPPED.split(" ")));
 
 
         /*
-          packaging stats: cat central.archive-metadata.txt | cut -d: -f3 | sort | uniq -c
+          packaging stats: cat central.archive-metadata.txt | cut -d: -f3 | sort | uniq -c | sort -b -n -r
             878591	jar
             106671	bundle
             54782	zip
@@ -169,6 +169,12 @@ public interface ArtifactFilter
             + " pdf eclipse-feature eclipse-plugin swf jangaroo swc html xsd txt apk jdocbook nexus-plugin"
             + " sonar-plugin nbm yml maven-archetype maven-plugin".split(" ")));
 
+        /*
+         Version token stats from 'cat data-text/target/central.archive-metadata.txt | cut -d: -f5 | cut -d. -f-50 --output-delimiter=$'\n' | sort | uniq -c | sort -b -n -r'
+         */
+        private final Set<String> SKIP_VERSIONS_CONTAINING  = new HashSet<>(Arrays.asList(
+            "rc alpha beta snap [-,\\.]cr [-,\\.]pre".split(" ")));
+
         @Override
         public boolean accept(String sha1, String group, String artifactId, String version, String packaging, String classifier)
         {
@@ -183,6 +189,8 @@ public interface ArtifactFilter
             if (SKIPPED_CLASSIFIERS.contains(classifier))
                 return false;
             if (SKIPPED_PACKAGINGS.contains(packaging))
+                return false;
+            if (SKIP_VERSIONS_CONTAINING.stream().anyMatch(ver -> version.matches(String.format("(?i).*%s.*", ver))))
                 return false;
 
             return true;
