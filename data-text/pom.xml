@@ -90,8 +90,7 @@
                                     <arguments>
                                         <argument>text</argument>
                                         <argument>jboss</argument>
-                                        <argument>https://repository.jboss.org/nexus/content/repositories/releases/
-                                        </argument>
+                                        <argument>https://repository.jboss.org/nexus/content/repositories/releases/</argument>
                                         <argument>${project.build.directory}</argument>
                                         <argument>${user.home}/.windup/cache/nexus-indexes</argument>
                                     </arguments>

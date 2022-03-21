@@ -5,41 +5,19 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiFields;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.BooleanClause;
-import org.apache.lucene.search.BooleanQuery;
-import org.apache.lucene.search.IndexSearcher;
-import org.apache.lucene.search.TermQuery;
-import org.apache.lucene.search.TotalHitCountCollector;
+import org.apache.lucene.search.*;
 import org.apache.lucene.util.Bits;
-import org.apache.maven.index.ArtifactContext;
-import org.apache.maven.index.ArtifactInfo;
-import org.apache.maven.index.Field;
-import org.apache.maven.index.Indexer;
-import org.apache.maven.index.IteratorSearchRequest;
-import org.apache.maven.index.IteratorSearchResponse;
-import org.apache.maven.index.MAVEN;
+import org.apache.maven.index.*;
 import org.apache.maven.index.context.IndexCreator;
 import org.apache.maven.index.context.IndexUtils;
 import org.apache.maven.index.context.IndexingContext;
-import org.apache.maven.index.creator.JarFileContentsIndexCreator;
-import org.apache.maven.index.creator.MavenArchetypeArtifactInfoIndexCreator;
-import org.apache.maven.index.creator.MavenPluginArtifactInfoIndexCreator;
-import org.apache.maven.index.creator.MinimalArtifactInfoIndexCreator;
-import org.apache.maven.index.creator.OsgiArtifactIndexCreator;
+import org.apache.maven.index.creator.*;
 import org.apache.maven.index.expr.SourcedSearchExpression;
 import org.apache.maven.index.packer.IndexPacker;
 import org.apache.maven.index.packer.IndexPackingRequest;
-import org.apache.maven.index.updater.IndexUpdateRequest;
-import org.apache.maven.index.updater.IndexUpdateResult;
-import org.apache.maven.index.updater.IndexUpdater;
-import org.apache.maven.index.updater.ResourceFetcher;
-import org.apache.maven.index.updater.WagonHelper;
+import org.apache.maven.index.updater.*;
 import org.apache.maven.wagon.Wagon;
-import org.codehaus.plexus.DefaultContainerConfiguration;
-import org.codehaus.plexus.DefaultPlexusContainer;
-import org.codehaus.plexus.PlexusConstants;
-import org.codehaus.plexus.PlexusContainer;
-import org.codehaus.plexus.PlexusContainerException;
+import org.codehaus.plexus.*;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
 import org.jboss.forge.addon.dependencies.DependencyRepository;
 
@@ -70,13 +48,7 @@ public class RepositoryIndexManager implements AutoCloseable
         LUCENE
     }
 
-    // Predefined BOMs. See http://repository.jboss.org/nexus/content/groups/public/org/jboss/bom/
-    private static final String JBOSS_PARENT_20 = "org.jboss:jboss-parent:20";
-    private static final String BOM_EAP7_TOOLS  = "org.jboss.bom:jboss-javaee-7.0-eap-with-tools:7.0.0-SNAPSHOT";
-    private static final String BOM_EAP7        = "org.jboss.bom:jboss-eap-javaee7:7.0.0-SNAPSHOT";
-
     public static final String LUCENE_SUBDIR_CHECKSUMS = "lucene";
-    public static final String LUCENE_SUBDIR_PACKAGES = "lucene-packages";
 
     private final File indexDirectory;
 
@@ -192,7 +164,7 @@ public class RepositoryIndexManager implements AutoCloseable
         outDir.mkdirs();
 
         // Maven repo index
-        final IndexSearcher searcher = this.context.acquireIndexSearcher();
+        final IndexSearcher searcher = context.acquireIndexSearcher();
         final IndexReader reader = searcher.getIndexReader();
         Bits liveDocs = MultiFields.getLiveDocs(reader);
 
@@ -210,23 +182,14 @@ public class RepositoryIndexManager implements AutoCloseable
             visitors.add(basicIndexerVisitor);
         }
 
-
-        //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss", "jboss-parent", "19");
-        //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss.bom", "jboss-eap-javaee7", "7.0.0-SNAPSHOT");
-        //ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom("org.jboss.bom", "jboss-javaee-7.0-eap-with-tools", "7.0.0-SNAPSHOT");
-        ArtifactFilter bomFilter = new BomBasedArtifactFilterFactory().createArtifactFilterFromBom(BOM_EAP7_TOOLS);
-        ArtifactFilter.AndFilter libsBomFilter = new ArtifactFilter.AndFilter(ArtifactFilter.LIBRARIES, bomFilter);
-
         for (int i = 0; i < reader.maxDoc(); i++)
         {
             if (liveDocs != null && !liveDocs.get(i))
                 continue;
-            //if (liveDocs == null || liveDocs.get(i))
 
             final Document doc = reader.document(i);
             final ArtifactInfo artifact = IndexUtils.constructArtifactInfo(doc, this.context);
             if (artifact == null){
-                //LOG.info("IndexUtils.constructArtifactInfo(doc, this.context) returned null: ["+i+"]" + doc.toString());
                 // This happens for documents which are not Artifact, e.g. Archetype etc.
                 continue;
             }
@@ -246,22 +209,7 @@ public class RepositoryIndexManager implements AutoCloseable
             }
         }
 
-        // https://issues.redhat.com/browse/WINDUP-2765 to fix https://issues.sonatype.org/browse/OSSRH-60950
-        // Create a boolean query with OR'd conditions so that if a new condition is found to retrieve missing
-        // artifacts coordinates, it will be just a matter of adding to this BooleanQuery
-        final BooleanQuery missingArtifactsQuery = new BooleanQuery();
-        // Query for searching all the docs in the index with the 'packaging' (aka the extension) that is 'module'
-        // e.g. Lucene query "+g:org.springframework.boot +a:spring-boot-starter-tomcat  +v:2.3.* +p:module"
-        // https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-web/2.3.2.RELEASE/
-        final TermQuery artifactsWithModuleQuery = new TermQuery(new Term(ArtifactInfo.PACKAGING, "module"));
-        // Query for searching all the docs in the index with the 'packaging' (aka the extension) that is 'pom.sha512'
-        // e.g. Lucene query "+g:org.springdoc +a:springdoc-openapi-common +v:1.4.? +p:pom.sha512"
-        // https://repo1.maven.org/maven2/org/springdoc/springdoc-openapi-common/1.4.3/
-        // https://repo1.maven.org/maven2/org/apache/ant/ant-commons-logging/1.8.0/
-        final TermQuery artifactsWithPomSha512Query = new TermQuery(new Term(ArtifactInfo.PACKAGING, "pom.sha512"));
-
-        missingArtifactsQuery.add(artifactsWithModuleQuery, BooleanClause.Occur.SHOULD);
-        missingArtifactsQuery.add(artifactsWithPomSha512Query, BooleanClause.Occur.SHOULD);
+        final BooleanQuery missingArtifactsQuery = createMissingArtifactsQuery();
 
         final TotalHitCountCollector missingArtifactsQueryCountCollector = new TotalHitCountCollector();
         searcher.search(missingArtifactsQuery, missingArtifactsQueryCountCollector);
@@ -314,6 +262,37 @@ public class RepositoryIndexManager implements AutoCloseable
             }
         }
         this.context.releaseIndexSearcher(searcher);
+    }
+
+    // This query is created to address certain missing artifacts from the index.
+    // See https://issues.redhat.com/browse/WINDUP-2765 and https://issues.sonatype.org/browse/OSSRH-60950
+    private BooleanQuery createMissingArtifactsQuery() {
+        final BooleanQuery missingArtifactsQuery = new BooleanQuery();
+
+        // Query for searching all the docs in the index with the 'packaging' (aka the extension) that is 'module'
+        // e.g. Lucene query "+g:org.springframework.boot +a:spring-boot-starter-tomcat  +v:2.3.* +p:module"
+        // https://repo1.maven.org/maven2/org/springframework/boot/spring-boot-starter-web/2.3.2.RELEASE/
+        final TermQuery artifactsWithModuleQuery = new TermQuery(new Term(ArtifactInfo.PACKAGING, "module"));
+
+        // Query for searching all the docs in the index with the 'packaging' (aka the extension) that is 'pom.sha512'
+        // e.g. Lucene query "+g:org.springdoc +a:springdoc-openapi-common +v:1.4.? +p:pom.sha512"
+        // https://repo1.maven.org/maven2/org/springdoc/springdoc-openapi-common/1.4.3/
+        // https://repo1.maven.org/maven2/org/apache/ant/ant-commons-logging/1.8.0/
+        final TermQuery artifactsWithPomSha512Query = new TermQuery(new Term(ArtifactInfo.PACKAGING, "pom.sha512"));
+
+        missingArtifactsQuery.add(artifactsWithModuleQuery, BooleanClause.Occur.SHOULD);
+        missingArtifactsQuery.add(artifactsWithPomSha512Query, BooleanClause.Occur.SHOULD);
+
+        // See https://issues.redhat.com/browse/WINDUP-3300
+        final TermQuery artifactsWithBundleQuery = new TermQuery(new Term(ArtifactInfo.PACKAGING, "bundle"));
+        final TermRangeQuery artifactsWithNoSymName = TermRangeQuery.newStringRange(ArtifactInfo.BUNDLE_SYMBOLIC_NAME, "a", "z", true, true);
+
+        final BooleanQuery missingBundleArtifactsClause = new BooleanQuery();
+        missingBundleArtifactsClause.add(artifactsWithBundleQuery, BooleanClause.Occur.MUST);
+        missingBundleArtifactsClause.add(artifactsWithNoSymName, BooleanClause.Occur.MUST_NOT);
+        missingArtifactsQuery.add(new BooleanClause(missingBundleArtifactsClause, BooleanClause.Occur.SHOULD));
+
+        return missingArtifactsQuery;
     }
 
     private void updateNexusIndex(File outputDir, DependencyRepository repository) throws IOException, ComponentLookupException
