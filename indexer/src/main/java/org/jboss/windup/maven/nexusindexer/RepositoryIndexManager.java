@@ -307,7 +307,7 @@ public class RepositoryIndexManager implements AutoCloseable
         // See also https://issues.redhat.com/browse/WINDUP-3300
         final BooleanQuery missingBundleArtifactsClause = new BooleanQuery();
         final TermQuery artifactsWithBundleQuery = new TermQuery(new Term(ArtifactInfo.PACKAGING, "bundle"));
-        final TermRangeQuery artifactsWithNoSymNameQuery = TermRangeQuery.newStringRange(ArtifactInfo.BUNDLE_SYMBOLIC_NAME, "*", "*", true, true);
+        final TermRangeQuery artifactsWithNoSymNameQuery = TermRangeQuery.newStringRange(ArtifactInfo.BUNDLE_SYMBOLIC_NAME, null, null, true, true);
         missingBundleArtifactsClause.add(artifactsWithBundleQuery, BooleanClause.Occur.MUST);
         missingBundleArtifactsClause.add(artifactsWithNoSymNameQuery, BooleanClause.Occur.MUST_NOT);
 
