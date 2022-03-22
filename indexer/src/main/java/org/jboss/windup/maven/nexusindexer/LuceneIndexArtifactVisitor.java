@@ -73,7 +73,7 @@ public class LuceneIndexArtifactVisitor implements RepositoryIndexManager.Artifa
     @Override
     public void visit(ArtifactInfo artifact)
     {
-        if (!this.filter.accept(artifact))
+        if (!filter.accept(artifact))
             return;
         try
         {
