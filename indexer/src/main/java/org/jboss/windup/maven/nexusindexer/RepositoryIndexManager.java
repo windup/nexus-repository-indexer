@@ -5,17 +5,36 @@ import org.apache.lucene.document.Document;
 import org.apache.lucene.index.IndexReader;
 import org.apache.lucene.index.MultiFields;
 import org.apache.lucene.index.Term;
-import org.apache.lucene.search.*;
+import org.apache.lucene.search.BooleanClause;
+import org.apache.lucene.search.BooleanQuery;
+import org.apache.lucene.search.IndexSearcher;
+import org.apache.lucene.search.TermQuery;
+import org.apache.lucene.search.TermRangeQuery;
+import org.apache.lucene.search.TotalHitCountCollector;
 import org.apache.lucene.util.Bits;
-import org.apache.maven.index.*;
+import org.apache.maven.index.ArtifactContext;
+import org.apache.maven.index.ArtifactInfo;
+import org.apache.maven.index.Field;
+import org.apache.maven.index.Indexer;
+import org.apache.maven.index.IteratorSearchRequest;
+import org.apache.maven.index.IteratorSearchResponse;
+import org.apache.maven.index.MAVEN;
 import org.apache.maven.index.context.IndexCreator;
 import org.apache.maven.index.context.IndexUtils;
 import org.apache.maven.index.context.IndexingContext;
-import org.apache.maven.index.creator.*;
+import org.apache.maven.index.creator.JarFileContentsIndexCreator;
+import org.apache.maven.index.creator.MavenArchetypeArtifactInfoIndexCreator;
+import org.apache.maven.index.creator.MavenPluginArtifactInfoIndexCreator;
+import org.apache.maven.index.creator.MinimalArtifactInfoIndexCreator;
+import org.apache.maven.index.creator.OsgiArtifactIndexCreator;
 import org.apache.maven.index.expr.SourcedSearchExpression;
 import org.apache.maven.index.packer.IndexPacker;
 import org.apache.maven.index.packer.IndexPackingRequest;
-import org.apache.maven.index.updater.*;
+import org.apache.maven.index.updater.IndexUpdateRequest;
+import org.apache.maven.index.updater.IndexUpdateResult;
+import org.apache.maven.index.updater.IndexUpdater;
+import org.apache.maven.index.updater.ResourceFetcher;
+import org.apache.maven.index.updater.WagonHelper;
 import org.apache.maven.wagon.Wagon;
 import org.codehaus.plexus.*;
 import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
@@ -283,13 +302,15 @@ public class RepositoryIndexManager implements AutoCloseable
         missingArtifactsQuery.add(artifactsWithModuleQuery, BooleanClause.Occur.SHOULD);
         missingArtifactsQuery.add(artifactsWithPomSha512Query, BooleanClause.Occur.SHOULD);
 
-        // See https://issues.redhat.com/browse/WINDUP-3300
+        // Searches for artifacts with "bundle" packaging and no Symbolic Bundle Name to cater for
+        // artifacts like https://mvnrepository.com/artifact/com.fasterxml.jackson.core/jackson-databind/2.12.3
+        // See also https://issues.redhat.com/browse/WINDUP-3300
+        final BooleanQuery missingBundleArtifactsClause = new BooleanQuery();
         final TermQuery artifactsWithBundleQuery = new TermQuery(new Term(ArtifactInfo.PACKAGING, "bundle"));
         final TermRangeQuery artifactsWithNoSymName = TermRangeQuery.newStringRange(ArtifactInfo.BUNDLE_SYMBOLIC_NAME, "a", "z", true, true);
-
-        final BooleanQuery missingBundleArtifactsClause = new BooleanQuery();
         missingBundleArtifactsClause.add(artifactsWithBundleQuery, BooleanClause.Occur.MUST);
         missingBundleArtifactsClause.add(artifactsWithNoSymName, BooleanClause.Occur.MUST_NOT);
+
         missingArtifactsQuery.add(new BooleanClause(missingBundleArtifactsClause, BooleanClause.Occur.SHOULD));
 
         return missingArtifactsQuery;
