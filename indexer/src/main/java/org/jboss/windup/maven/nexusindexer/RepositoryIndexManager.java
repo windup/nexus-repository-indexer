@@ -247,22 +247,22 @@ public class RepositoryIndexManager implements AutoCloseable
                     .forEach(doc -> {
                                 try {
                                     // Get the info for each corrupt artifact
-                                    final ArtifactInfo wrongArtifactInfo = IndexUtils.constructArtifactInfo(searcher.doc(doc.doc), this.context);
-                                    artifactsToBeDeleted.add(new ArtifactContext(null, null, null, wrongArtifactInfo, null));
+                                    final ArtifactInfo corruptArtifact = IndexUtils.constructArtifactInfo(searcher.doc(doc.doc), this.context);
+                                    artifactsToBeDeleted.add(new ArtifactContext(null, null, null, corruptArtifact, null));
                                     // Download the correct sha1 for the given artifact
-                                    final String sha1 = ArtifactDownloader.getJarSha1(repository.getUrl(), wrongArtifactInfo);
+                                    final String sha1 = ArtifactDownloader.getJarSha1(repository.getUrl(), corruptArtifact);
                                     // If the artifact with the correct sha1 is not present in our index, then add it with the correct one
-                                    if (!ArtifactUtil.isArtifactAlreadyIndexed(indexer, this.context, sha1, wrongArtifactInfo)) {
-                                        final ArtifactInfo artifactInfo = new ArtifactInfo(repository.getId(),
-                                                wrongArtifactInfo.getGroupId(), wrongArtifactInfo.getArtifactId(),
-                                                wrongArtifactInfo.getVersion(), StringUtils.defaultString(null), "jar");
-                                        artifactInfo.setSha1(sha1);
-                                        artifactInfo.setPackaging("jar");
+                                    if (!ArtifactUtil.isArtifactAlreadyIndexed(indexer, this.context, sha1, corruptArtifact)) {
+                                        final ArtifactInfo correctedArtifact = new ArtifactInfo(repository.getId(),
+                                                corruptArtifact.getGroupId(), corruptArtifact.getArtifactId(),
+                                                corruptArtifact.getVersion(), StringUtils.defaultString(null), "jar");
+                                        correctedArtifact.setSha1(sha1);
+                                        correctedArtifact.setPackaging("jar");
                                         for (ArtifactVisitor<Object> visitor : visitors) {
                                             try {
-                                                visitor.visit(artifactInfo);
+                                                visitor.visit(correctedArtifact);
                                             } catch (Exception e) {
-                                                LOG.log(Level.SEVERE, String.format("Failed processing %s with %s%n    %s", artifactInfo, visitor, e.getMessage()));
+                                                LOG.log(Level.SEVERE, String.format("Failed processing %s with %s%n    %s", correctedArtifact, visitor, e.getMessage()));
                                             }
                                         }
                                         if (managed.incrementAndGet() % 5000 == 0)
@@ -270,7 +270,7 @@ public class RepositoryIndexManager implements AutoCloseable
                                             LOG.log(Level.INFO, String.format("Managed %d/%d artifacts ", managed.get(), artifactsCount));
                                         }
                                     } else {
-                                        LOG.log(Level.INFO, String.format("Dependency %s is NOT missing anymore in the source index", wrongArtifactInfo.getUinfo()));
+                                        LOG.log(Level.INFO, String.format("Dependency %s is NOT missing anymore in the source index", corruptArtifact.getUinfo()));
                                     }
                                 } catch (IOException e) {
                                     errors.incrementAndGet();
