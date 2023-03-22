@@ -317,6 +317,15 @@ public class RepositoryIndexManager implements AutoCloseable
 
         missingArtifactsQuery.add(new BooleanClause(missingBundleArtifactsClause, BooleanClause.Occur.SHOULD));
 
+        // Looks for hashless artifacts
+        final BooleanQuery missingHashArtifactsQuery = new BooleanQuery();
+        final TermQuery artifactsWithJarPackaging = new TermQuery(new Term(ArtifactInfo.PACKAGING, "jar"));
+        final TermRangeQuery artifactsWithNoHashQuery = TermRangeQuery.newStringRange(ArtifactInfo.SHA1, null, null, true, true);
+        missingHashArtifactsQuery.add(artifactsWithJarPackaging, BooleanClause.Occur.MUST);
+        missingHashArtifactsQuery.add(artifactsWithNoHashQuery, BooleanClause.Occur.MUST_NOT);
+
+        missingArtifactsQuery.add(new BooleanClause(missingHashArtifactsQuery, BooleanClause.Occur.SHOULD));
+
         return missingArtifactsQuery;
     }
 
