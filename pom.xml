@@ -10,7 +10,7 @@
 
     <groupId>org.jboss.windup.maven</groupId>
     <artifactId>nexus-indexer-parent</artifactId>
-    <version>23.05.17.Final</version>
+    <version>23.03.16-SNAPSHOT</version>
     <packaging>pom</packaging>
 
     <name>Windup: Nexus Indexer - Parent</name>
